@@ -1,0 +1,401 @@
+<template>
+    <template if:false={showProductDetails}>
+        <lightning-card class="slds-p-around_medium">
+            <!-- Spinner Section -->
+            <template if:true={isLoading}>
+                <div class="spinner-overlay">
+                    <lightning-spinner alternative-text="Loading" size="large"></lightning-spinner>
+                </div>
+            </template>
+
+            <!-- Form Section -->
+            <div class="slds-p-around_medium">
+                <lightning-input class="slds-m-top_medium" label="Enter Item Code" value={itemCode} data-id="itemCode" onchange={handleInputChange} disabled={isItemCodeDisabled}></lightning-input>
+                <lightning-button class="slds-m-top_medium" label="Scan Item Code" onclick={handleScanItemCode}></lightning-button>
+
+                <lightning-input class="slds-m-top_medium" label="Enter Serial Code" value={serialCode} data-id="serialCode" onchange={handleInputChange} disabled={isSerialCodeDisabled}></lightning-input>
+                <lightning-button class="slds-m-top_medium" label="Scan Serial Code" onclick={handleScanSerialCode}></lightning-button>
+
+                <!-- Additional Fields for Business Unit H -->
+                <template if:true={isBusinessUnitH}>
+                    <lightning-input class="slds-m-top_medium" label="Enter IDU Serial Number" value={iduSerialNumber} data-id="iduSerialNumber" onchange={handleInputChange}></lightning-input>
+                    <lightning-button class="slds-m-top_medium" label="Scan IDU Serial Number" onclick={handleScanIduSerialNumber}></lightning-button>
+
+                    <lightning-input class="slds-m-top_medium" label="Enter ODU Serial Number" value={oduSerialNumber} data-id="oduSerialNumber" onchange={handleInputChange}></lightning-input>
+                    <lightning-button class="slds-m-top_medium" label="Scan ODU Serial Number" onclick={handleScanOduSerialNumber}></lightning-button>
+                </template>
+
+                <lightning-input class="slds-m-top_medium" type="file" label="Upload Invoice" onchange={handleFileUpload}></lightning-input>
+
+                <template if:false={isBusinessUnitH}>
+                    <lightning-button class="slds-m-top_medium" label="Submit" onclick={handleSubmit}></lightning-button>
+                </template>
+                <template if:true={isBusinessUnitH}>
+                    <lightning-button class="slds-m-top_medium" label="Submit for H Business Unit" onclick={handleSubmitForH}></lightning-button>
+                </template>
+
+                <template if:true={isSerialIdLinkedResult}>
+                    <lightning-button class="slds-m-top_medium" label="Transfer the Asset" onclick={handleTransferClick}></lightning-button>
+                </template>
+            </div>
+        </lightning-card>
+    </template>
+
+    <template if:true={showProductDetails}>
+        <lightning-card title="Product Details" class="slds-p-around_medium">
+            <div class="slds-p-around_medium">
+                <lightning-input class="slds-m-top_medium" label="Product Name" value={productDetails.Name} disabled></lightning-input>
+                <lightning-input class="slds-m-top_medium" label="Product Code" value={productDetails.ProductCode} disabled></lightning-input>
+                <lightning-input class="slds-m-top_medium" label="Product Category" value={productDetails.Product_Category__c} disabled></lightning-input>
+
+                <!-- Editable Fields -->
+                <lightning-input class="slds-m-top_medium" type="date" label="Date of Purchase" value={dateOfPurchase} onchange={handleInputChange}></lightning-input>
+                <lightning-input class="slds-m-top_medium" type="date" label="Date of Installation" value={dateOfInstallation} onchange={handleInputChange}></lightning-input>
+                <lightning-input class="slds-m-top_medium" label="Sales Product Code" value={salesProductCode} onchange={handleInputChange}></lightning-input>
+                <lightning-input class="slds-m-top_medium" label="Invoice Number" value={invoiceNumber} onchange={handleInputChange}></lightning-input>
+                <lightning-input class="slds-m-top_medium" type="date" label="Warranty Start Date" value={warrantyStartDate} onchange={handleInputChange}></lightning-input>
+                <lightning-input class="slds-m-top_medium" type="date" label="Warranty End Date" value={warrantyEndDate} onchange={handleInputChange}></lightning-input>
+                <lightning-input class="slds-m-top_medium" label="Source of Purchase" value={sourceOfPurchase} onchange={handleInputChange}></lightning-input>
+                <lightning-textarea class="slds-m-top_medium" label="Remarks" value={remarks} onchange={handleInputChange}></lightning-textarea>
+                <lightning-input class="slds-m-top_medium" type="checkbox" label="Rental Asset" checked={rentalAsset} onchange={handleCheckboxChange}></lightning-input>
+
+                <lightning-button class="slds-m-top_medium" label="Save" onclick={handleSave}></lightning-button>
+            </div>
+        </lightning-card>
+    </template>
+</template>
+
+
+import { LightningElement, track, api } from 'lwc';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import makeMockApiCall from '@salesforce/apex/AssetOnboardingController.makeMockApiCall';
+import isSerialIdLinked from '@salesforce/apex/AssetOnboardingController.isSerialIdLinked';
+import uploadFile from '@salesforce/apex/AssetOnboardingController.saveAttachment';
+import transferAsset from '@salesforce/apex/AssetOnboardingController.transfertAnAsset';
+import getProductDetailsBasedOnId from '@salesforce/apex/AssetOnboardingController.getProductDetails';
+import getProductDetailsBySerialNumber from '@salesforce/apex/AssetOnboardingController.getProductDetailsBySerialNumber';
+import updateAssetDetailsWithWorkOrder from '@salesforce/apex/AssetOnboardingController.updateAssetDetailsWithWorkOrder';
+import { getBarcodeScanner } from 'lightning/mobileCapabilities';
+
+export default class AssetOnboarding extends LightningElement {
+    @track itemCode = '';
+    @track serialCode = '';
+    @track iduSerialNumber = '';
+    @track oduSerialNumber = '';
+    @track isSerialIdLinkedResult = false;
+    @track isItemCodeDisabled = false;
+    @track isSerialCodeDisabled = false;
+    @track isLoading = false;
+    @track showProductDetails = false;
+    @track productDetails = {};
+    @track dateOfPurchase;
+    @track dateOfInstallation;
+    @track salesProductCode;
+    @track invoiceNumber;
+    @track warrantyStartDate;
+    @track warrantyEndDate;
+    @track sourceOfPurchase;
+    @track remarks;
+    @track rentalAsset = false;
+
+    barcodeScanner;
+    productId;
+
+    @api businessUnit;
+    @api recordId;
+
+    connectedCallback() {
+        this.barcodeScanner = getBarcodeScanner();
+    }
+
+    get isBusinessUnitH() {
+        return this.businessUnit === 'H';
+    }
+
+    handleInputChange(event) {
+        const field = event.target.dataset.id;
+        this[field] = event.target.value;
+    }
+
+    handleCheckboxChange(event) {
+        this.rentalAsset = event.target.checked;
+    }
+
+    handleFileUpload(event) {
+        const file = event.target.files[0];
+        const reader = new FileReader();
+
+        reader.onload = () => {
+            this.fileData = {
+                fileName: file.name,
+                base64Data: reader.result.split(',')[1]
+            };
+            this.handleSaveDocument();
+        };
+
+        reader.readAsDataURL(file);
+    }
+
+    handleSaveDocument() {
+        if (!this.fileData) {
+            return;
+        }
+        this.isLoading = true;
+        uploadFile({ parentId: this.recordId, fileName: this.fileData.fileName, base64Data: this.fileData.base64Data })
+            .then(() => this.showSuccessToast('Document uploaded successfully'))
+            .catch(error => this.showToast('Error', error.body.message, 'error'))
+            .finally(() => this.isLoading = false);
+    }
+
+    handleScanItemCode() {
+        this.scanCode('itemCode');
+    }
+
+    handleScanSerialCode() {
+        this.scanCode('serialCode');
+    }
+
+    handleScanIduSerialNumber() {
+        this.scanCode('iduSerialNumber');
+    }
+
+    handleScanOduSerialNumber() {
+        this.scanCode('oduSerialNumber');
+    }
+
+    scanCode(field) {
+        if (this.barcodeScanner.isAvailable()) {
+            const scanningOptions = {
+                barcodeTypes: ["code128", "code39", "code93", "ean13", "ean8", "upca", "upce", "qr", "datamatrix", "itf", "pdf417"],
+                instructionText: "Position barcode in the scanner view.\nPress x to stop.",
+                successText: "Successful Scan!"
+            };
+            this.barcodeScanner.scan(scanningOptions)
+                .then(results => {
+                    this[field] = results[0].value;
+                    this[`is${field.charAt(0).toUpperCase() + field.slice(1)}Disabled`] = true;
+                    this.template.querySelector(`lightning-input[data-id="${field}"]`).value = this[field];
+                })
+                .catch(error => this.showToast('Error', error.body.message, 'error'))
+                .finally(() => this.barcodeScanner.dismiss());
+        } else {
+            this.showToast('Error', 'Barcode scanner is not available', 'error');
+        }
+    }
+
+    handleSubmit() {
+        if (!this.serialCode) {
+            this.showToast('Warning', 'Please enter a value in the serial code input field.', 'warning');
+            return;
+        }
+
+        this.isLoading = true;
+        isSerialIdLinked({ serialId: this.serialCode })
+            .then(result => {
+                this.isSerialIdLinkedResult = result.isLinked;
+                if (result.isLinked) {
+                    this.showToast('Warning', 'The scanned serial ID is already linked with an existing asset.', 'warning');
+                } else {
+                    this.makeCallout();
+                }
+            })
+            .catch(error => this.showToast('Error', error.body.message, 'error'))
+            .finally(() => this.isLoading = false);
+    }
+
+    handleSubmitForH() {
+        if (!this.serialCode || !this.iduSerialNumber || !this.oduSerialNumber) {
+            this.showToast('Warning', 'Please enter all required serial numbers.', 'warning');
+            return;
+        }
+
+        this.isLoading = true;
+        isSerialIdLinked({ serialId: this.serialCode })
+            .then(result => {
+                if (result.isLinked) {
+                    this.showToast('Warning', 'The scanned serial ID is already linked with an existing asset.', 'warning');
+                } else {
+                    this.getProductDetailsForH();
+                }
+            })
+            .catch(error => this.showToast('Error', error.body.message, 'error'))
+            .finally(() => this.isLoading = false);
+    }
+
+    getProductDetailsForH() {
+        getProductDetailsBySerialNumber({ serialNumber: this.serialCode })
+            .then(productDetails => {
+                this.productDetails = productDetails;
+                this.productId = productDetails.Id;
+                this.showProductDetails = true;
+            })
+            .catch(error => this.showToast('Error', error.body.message, 'error'))
+            .finally(() => this.isLoading = false);
+    }
+
+    makeCallout() {
+        makeMockApiCall({ qrCodes: [this.itemCode], recordId: this.recordId })
+            .then(result => {
+                const parsedResult = JSON.parse(result);
+                if (parsedResult && parsedResult.LstProductDetailsApiList && parsedResult.LstProductDetailsApiList.length > 0) {
+                    const qrCodeResponse = parsedResult.LstProductDetailsApiList[0];
+                    if (qrCodeResponse.Status === 'INVALID') {
+                        this.showToast('Error', qrCodeResponse.ResponseMessage, 'error');
+                    } else {
+                        this.fetchProductDetails(qrCodeResponse.ProductCode);
+                    }
+                } else {
+                    this.showToast('Error', 'No product details found in the response', 'error');
+                }
+            })
+            .catch(error => this.showToast('Error', error.body.message, 'error'))
+            .finally(() => this.isLoading = false);
+    }
+
+    fetchProductDetails(productCode) {
+        getProductDetailsBasedOnId({ productCode })
+            .then(result => {
+                this.productDetails = result;
+                this.productId = result.Id;
+                this.showProductDetails = true;
+            })
+            .catch(error => this.showToast('Error', error.body.message, 'error'));
+    }
+
+    handleSave() {
+        this.isLoading = true;
+        updateAssetDetailsWithWorkOrder({
+            workOrderLineItemId: this.recordId,
+            dateOfPurchase: this.dateOfPurchase,
+            dateOfInstallation: this.dateOfInstallation,
+            salesProductCode: this.salesProductCode,
+            invoiceNumber: this.invoiceNumber,
+            warrantyStartDate: this.warrantyStartDate,
+            warrantyEndDate: this.warrantyEndDate,
+            sourceOfPurchase: this.sourceOfPurchase,
+            remarks: this.remarks,
+            rentalAsset: this.rentalAsset,
+            productId: this.productId,
+            serialCode: this.serialCode,
+            itemCode: this.itemCode
+        })
+            .then(() => {
+                this.showSuccessToast('Product details saved successfully');
+                this.showProductDetails = false;
+            })
+            .catch(error => this.showToast('Error', error.body.message, 'error'))
+            .finally(() => this.isLoading = false);
+    }
+
+    showToast(title, message, variant) {
+        const event = new ShowToastEvent({
+            title: title,
+            message: message,
+            variant: variant
+        });
+        this.dispatchEvent(event);
+    }
+
+    showSuccessToast(message) {
+        this.showToast('Success', message, 'success');
+    }
+}
+
+.spinner-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 100;
+    background: rgba(255, 255, 255, 0.8);
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+
+
+public with sharing class AssetOnboardingController {
+    @AuraEnabled(cacheable=true)
+    public static String makeMockApiCall(List<String> qrCodes, String recordId) {
+        return QRCodeService.sendQRCodeAsJson(qrCodes);
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static Map<String, Object> isSerialIdLinked(String serialId) {
+        Map<String, Object> result = new Map<String, Object>();
+        result.put('isLinked', false);
+        result.put('recordId', null);
+
+        if (String.isBlank(serialId)) {
+            return result; // Return false and null if serialId is null or empty
+        }
+
+        List<Asset> linkedAssets = [SELECT Id, AccountId FROM Asset WHERE SerialNumber = :serialId LIMIT 1];
+
+        if (!linkedAssets.isEmpty()) {
+            result.put('isLinked', true);
+            result.put('recordId', linkedAssets[0].Id);
+            result.put('previousAccount', linkedAssets[0].AccountId);
+        }
+
+        return result;
+    }
+
+    @AuraEnabled(cacheable=false)
+    public static void saveAttachment(Id parentId, String fileName, String base64Data) {
+        try {
+            List<WorkOrderLineItem> woliList = [SELECT AssetId FROM WorkOrderLineItem WHERE Id = :parentId];
+            Blob fileBlob = EncodingUtil.base64Decode(base64Data);
+            List<ContentVersion> contentVersions = new List<ContentVersion>();            
+            ContentVersion cv = new ContentVersion(
+                Title = fileName,
+                PathOnClient = fileName,
+                VersionData = EncodingUtil.base64Decode(base64Data),
+                FirstPublishLocationId = woliList[0].AssetId
+            );
+            contentVersions.add(cv);
+            insert contentVersions;
+
+        } catch (Exception ex) {
+            throw new AuraHandledException('Error occurred while saving attachment: ' + ex.getMessage());
+        }
+    }
+
+    @AuraEnabled(cacheable=false)
+    public static void transfertAnAsset(Id recordID, Id previousAssetId, Id accountId) {
+        // Existing logic...
+    }
+
+    @AuraEnabled
+    public static Product2 getProductDetails(String productCode) {
+        return [SELECT Id, Name, ProductCode, Product_Category__c FROM Product2 WHERE ProductCode = :productCode LIMIT 1];
+    }
+
+    @AuraEnabled
+    public static void updateAssetDetailsWithWorkOrder(Id workOrderLineItemId, String dateOfPurchase, String dateOfInstallation, String salesProductCode,
+                                          String invoiceNumber, String warrantyStartDate, String warrantyEndDate, String sourceOfPurchase,
+                                          String remarks, Boolean rentalAsset, Id productId, String serialCode, String itemCode) {
+        // Existing logic...
+    }
+
+    @AuraEnabled
+    public static Product2 getProductDetailsBasedOnId(Id productId) {
+        return [SELECT Id, Name, ProductCode, Product_Sub_Category__c FROM Product2 WHERE Id = :productId LIMIT 1];
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static Product2 getProductDetailsBySerialNumber(String serialNumber) {
+        List<PSN__c> psnRecords = [SELECT Id, Item_Code__c FROM PSN__c WHERE Serial_Number__c = :serialNumber LIMIT 1];
+        if (psnRecords.isEmpty()) {
+            throw new AuraHandledException('No product found with the given serial number.');
+        }
+        String itemCode = psnRecords[0].Item_Code__c;
+        if (String.isBlank(itemCode)) {
+            throw new AuraHandledException('No product details found for the given item code.');
+        }
+        return [SELECT Id, Name, ProductCode, Product_Category__c FROM Product2 WHERE ProductCode = :itemCode LIMIT 1];
+    }
+}
