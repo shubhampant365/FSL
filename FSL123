@@ -1,88 +1,3 @@
-public with sharing class AssetOnboardingController {
-    @AuraEnabled(cacheable=true)
-    public static String makeMockApiCall(List<String> qrCodes, String recordId) {
-        return QRCodeService.sendQRCodeAsJson(qrCodes);
-    }
-
-    @AuraEnabled(cacheable=true)
-    public static Map<String, Object> isSerialIdLinked(String serialId) {
-        Map<String, Object> result = new Map<String, Object>();
-        result.put('isLinked', false);
-        result.put('recordId', null);
-
-        if (String.isBlank(serialId)) {
-            return result; // Return false and null if serialId is null or empty
-        }
-
-        List<Asset> linkedAssets = [SELECT Id, AccountId FROM Asset WHERE SerialNumber = :serialId LIMIT 1];
-
-        if (!linkedAssets.isEmpty()) {
-            result.put('isLinked', true);
-            result.put('recordId', linkedAssets[0].Id);
-            result.put('previousAccount', linkedAssets[0].AccountId);
-        }
-
-        return result;
-    }
-
-    @AuraEnabled(cacheable=false)
-    public static void saveAttachment(Id parentId, String fileName, String base64Data) {
-        try {
-            List<WorkOrderLineItem> woliList = [SELECT AssetId FROM WorkOrderLineItem WHERE Id = :parentId];
-            Blob fileBlob = EncodingUtil.base64Decode(base64Data);
-            List<ContentVersion> contentVersions = new List<ContentVersion>();            
-            ContentVersion cv = new ContentVersion(
-                Title = fileName,
-                PathOnClient = fileName,
-                VersionData = EncodingUtil.base64Decode(base64Data),
-                FirstPublishLocationId = woliList[0].AssetId
-            );
-            contentVersions.add(cv);
-            insert contentVersions;
-
-        } catch (Exception ex) {
-            throw new AuraHandledException('Error occurred while saving attachment: ' + ex.getMessage());
-        }
-    }
-
-    @AuraEnabled(cacheable=false)
-    public static void transfertAnAsset(Id recordID, Id previousAssetId, Id accountId) {
-        // Existing logic...
-    }
-
-    @AuraEnabled
-    public static Product2 getProductDetails(String productCode) {
-        return [SELECT Id, Name, ProductCode, Product_Category__c FROM Product2 WHERE ProductCode = :productCode LIMIT 1];
-    }
-
-    @AuraEnabled
-    public static void updateAssetDetailsWithWorkOrder(Id workOrderLineItemId, String dateOfPurchase, String dateOfInstallation, String salesProductCode,
-                                          String invoiceNumber, String warrantyStartDate, String warrantyEndDate, String sourceOfPurchase,
-                                          String remarks, Boolean rentalAsset, Id productId, String serialCode, String itemCode) {
-        // Existing logic...
-    }
-
-    @AuraEnabled
-    public static Product2 getProductDetailsBasedOnId(Id productId) {
-        return [SELECT Id, Name, ProductCode, Product_Sub_Category__c FROM Product2 WHERE Id = :productId LIMIT 1];
-    }
-
-    @AuraEnabled(cacheable=true)
-    public static Product2 getProductDetailsBySerialNumber(String serialNumber) {
-        List<PSN__c> psnRecords = [SELECT Id, Item_Code__c FROM PSN__c WHERE Serial_Number__c = :serialNumber LIMIT 1];
-        if (psnRecords.isEmpty()) {
-            throw new AuraHandledException('No product found with the given serial number.');
-        }
-        String itemCode = psnRecords[0].Item_Code__c;
-        if (String.isBlank(itemCode)) {
-            throw new AuraHandledException('No product details found for the given item code.');
-        }
-        return [SELECT Id, Name, ProductCode, Product_Category__c FROM Product2 WHERE ProductCode = :itemCode LIMIT 1];
-    }
-}
-
-
-
 <template>
     <template if:false={showProductDetails}>
         <lightning-card class="slds-p-around_medium">
@@ -149,7 +64,6 @@ public with sharing class AssetOnboardingController {
         </lightning-card>
     </template>
 </template>
-
 
 
 
@@ -374,6 +288,16 @@ export default class AssetOnboarding extends LightningElement {
             .finally(() => this.isLoading = false);
     }
 
+    handleTransferClick() {
+        this.isLoading = true;
+        transferAsset({ recordID: this.recordId, previousAssetId: this.previousAssetId, accountId: this.previousAccount })
+            .then(result => {
+                this.showToast('Success', result, 'success');
+            })
+            .catch(error => this.showToast('Error', error.body.message, 'error'))
+            .finally(() => this.isLoading = false);
+    }
+
     showToast(title, message, variant) {
         const event = new ShowToastEvent({
             title: title,
@@ -386,20 +310,4 @@ export default class AssetOnboarding extends LightningElement {
     showSuccessToast(message) {
         this.showToast('Success', message, 'success');
     }
-}
-
-
-
-.spinner-overlay {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 100;
-    background: rgba(255, 255, 255, 0.8);
-    width: 100%;
-    height: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
 }
