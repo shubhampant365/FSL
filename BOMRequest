@@ -1,87 +1,50 @@
 <template>
-    <lightning-card title="Bill of Materials" icon-name="standard:product_item">
-        <lightning-input type="text" label="Search Product Code" value={searchKey} onchange={handleSearchChange}></lightning-input>
-        <template if:true={filteredBoms}>
+    <lightning-card title="Bill of Materials">
+        <template if:true={boms.data}>
             <table class="slds-table slds-table_cell-buffer slds-table_bordered">
                 <thead>
                     <tr class="slds-line-height_reset">
                         <th scope="col">
-                            <div class="slds-truncate" title="Product Code">Product Code</div>
+                            <div class="slds-truncate" title="BOM Name">BOM Name</div>
+                        </th>
+                        <th scope="col">
+                            <div class="slds-truncate" title="Product Name">Product Name</div>
                         </th>
                         <th scope="col">
                             <div class="slds-truncate" title="Quantity">Quantity</div>
                         </th>
-                        <th scope="col">
-                            <div class="slds-truncate" title="Requested">Requested</div>
-                        </th>
                     </tr>
                 </thead>
                 <tbody>
-                    <template for:each={filteredBoms} for:item="bom">
+                    <template for:each={boms.data} for:item="bom">
                         <tr key={bom.Id} class="slds-hint-parent">
-                            <td data-label="Product Code">
-                                <div class="slds-truncate" title={bom.Product_Code__c.Name}>{bom.Product_Code__c.Name}</div>
+                            <td data-label="BOM Name">
+                                <div class="slds-truncate" title={bom.Name}>{bom.Name}</div>
+                            </td>
+                            <td data-label="Product Name">
+                                <div class="slds-truncate" title={bom.ProductName}>{bom.ProductName}</div>
                             </td>
                             <td data-label="Quantity">
                                 <div class="slds-truncate" title={bom.Quantity__c}>{bom.Quantity__c}</div>
-                            </td>
-                            <td data-label="Requested">
-                                <lightning-input type="number" value={bom.requestedQuantity} data-id={bom.Id} onchange={handleInputChange}></lightning-input>
                             </td>
                         </tr>
                     </template>
                 </tbody>
             </table>
         </template>
-        <template if:true={error}>
-            <p class="slds-text-color_error">{error}</p>
-        </template>
-        <template if:true={filteredBoms.length === 0 && searchKey}>
-            <p>No records found.</p>
+        <template if:true={boms.error}>
+            <p class="slds-text-color_error">{boms.error}</p>
         </template>
     </lightning-card>
 </template>
 
 
-import { LightningElement, api, wire, track } from 'lwc';
-import getBOMRecords from '@salesforce/apex/BOMRequestController.getBOMRecords';
+import { LightningElement, api, wire } from 'lwc';
+import getBOMs from '@salesforce/apex/BOMRequestController.getBOMs';
 
-export default class BomList extends LightningElement {
+export default class BomRequest extends LightningElement {
     @api recordId;
-    @track boms;
-    @track filteredBoms;
-    @track error;
-    @track searchKey = '';
 
-    @wire(getBOMRecords, { workOrderLineItemId: '$recordId' })
-    wiredBOMs({ error, data }) {
-        console.log('Wire method called');
-        if (data) {
-            console.log('Data received:', data);
-            this.boms = data.map(bom => ({ ...bom, requestedQuantity: 0 }));
-            this.filteredBoms = this.boms;
-            this.error = undefined;
-        } else if (error) {
-            console.error('Error received:', error);
-            this.error = error;
-            this.boms = undefined;
-        }
-    }
-
-    handleInputChange(event) {
-        const bomId = event.target.dataset.id;
-        const value = event.target.value;
-        this.filteredBoms = this.filteredBoms.map(bom => bom.Id === bomId ? { ...bom, requestedQuantity: value } : bom);
-    }
-
-    handleSearchChange(event) {
-        this.searchKey = event.target.value.toLowerCase();
-        if (this.searchKey) {
-            this.filteredBoms = this.boms.filter(bom =>
-                bom.Product_Code__c.Name.toLowerCase().includes(this.searchKey)
-            );
-        } else {
-            this.filteredBoms = this.boms;
-        }
-    }
+    @wire(getBOMs, { workOrderLineItemId: '$recordId' })
+    boms;
 }
