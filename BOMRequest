@@ -1,6 +1,6 @@
 <template>
     <lightning-card title="Bill of Materials" icon-name="standard:product_item">
-        <template if:true={!showTable}>
+        <template if:true={shouldShowRadio}>
             <div class="slds-p-horizontal_medium slds-p-around_medium">
                 <lightning-radio-group 
                     label="Select Action"
@@ -69,8 +69,6 @@
 
 
 
-
-
 import { LightningElement, api, track } from 'lwc';
 import getBOMs from '@salesforce/apex/BOMRequestController.getBOMs';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
@@ -92,6 +90,10 @@ export default class BomRequest extends LightningElement {
         { label: 'Consume', value: 'Consume' },
         { label: 'Request', value: 'Request' }
     ];
+
+    get shouldShowRadio() {
+        return !this.showTable;
+    }
 
     get columnLabel() {
         return this.selectedOption;
