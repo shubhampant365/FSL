@@ -165,19 +165,6 @@ export default class BomRequest extends LightningElement {
     handleRequestConsumeChange(event) {
         const id = event.target.dataset.id;
         const value = event.target.value;
-        const bomIndex = this.boms.findIndex(bom => bom.id === id);
-
-        if (value > this.boms[bomIndex].quantity) {
-            this.dispatchEvent(
-                new ShowToastEvent({
-                    title: 'Error',
-                    message: 'Requested quantity exceeds available quantity',
-                    variant: 'error'
-                })
-            );
-            return;
-        }
-
         this.filteredBoms = this.filteredBoms.map(bom => {
             if (bom.id === id) {
                 return { ...bom, requestConsume: value };
@@ -196,6 +183,29 @@ export default class BomRequest extends LightningElement {
     }
 
     handleSave() {
+        let isValid = true;
+        let invalidItems = [];
+
+        // Validate if any requested quantity exceeds the available quantity
+        this.boms.forEach(bom => {
+            if (bom.requestConsume > bom.quantity) {
+                isValid = false;
+                invalidItems.push(bom.productName);
+            }
+        });
+
+        if (!isValid) {
+            const invalidItemsStr = invalidItems.join(', ');
+            this.dispatchEvent(
+                new ShowToastEvent({
+                    title: 'Error',
+                    message: `Requested quantity exceeds available quantity for: ${invalidItemsStr}`,
+                    variant: 'error'
+                })
+            );
+            return;
+        }
+
         const bomsToSave = this.boms.map(bom => ({
             id: bom.id,
             requestConsume: bom.requestConsume
