@@ -15,52 +15,55 @@
         <template if:true={isLoading}>
             <lightning-spinner alternative-text="Loading"></lightning-spinner>
         </template>
-        <template if:true={paginatedData.length}>
-            <table class="slds-table slds-table_bordered slds-table_cell-buffer">
-                <thead>
-                    <tr>
-                        <th scope="col">
-                            <div class="slds-truncate" title="Product Name">Product Name</div>
-                        </th>
-                        <th scope="col">
-                            <div class="slds-truncate" title="Quantity">Quantity</div>
-                        </th>
-                        <th scope="col">
-                            <div class="slds-truncate" title={columnLabel}>{columnLabel}</div>
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <template for:each={paginatedData} for:item="bom">
-                        <tr key={bom.id}>
-                            <td>
-                                <div class="slds-truncate" title={bom.productName}>{bom.productName}</div>
-                            </td>
-                            <td>
-                                <div class="slds-truncate" title={bom.quantity}>{bom.quantity}</div>
-                            </td>
-                            <td>
-                                <lightning-input type="number" value={bom.requestConsume} data-id={bom.id} onchange={handleRequestConsumeChange}></lightning-input>
-                            </td>
+        <template if:true={showTable}>
+            <template if:true={paginatedData.length}>
+                <table class="slds-table slds-table_bordered slds-table_cell-buffer">
+                    <thead>
+                        <tr>
+                            <th scope="col">
+                                <div class="slds-truncate" title="Product Name">Product Name</div>
+                            </th>
+                            <th scope="col">
+                                <div class="slds-truncate" title="Quantity">Quantity</div>
+                            </th>
+                            <th scope="col">
+                                <div class="slds-truncate" title={columnLabel}>{columnLabel}</div>
+                            </th>
                         </tr>
-                    </template>
-                </tbody>
-            </table>
-            <div class="slds-m-top_medium slds-grid slds-grid_align-spread">
-                <lightning-button label="Previous" onclick={handlePrevious} disabled={disablePrevious}></lightning-button>
-                <lightning-button label="Next" onclick={handleNext} disabled={disableNext}></lightning-button>
-            </div>
+                    </thead>
+                    <tbody>
+                        <template for:each={paginatedData} for:item="bom">
+                            <tr key={bom.id}>
+                                <td>
+                                    <div class="slds-truncate" title={bom.productName}>{bom.productName}</div>
+                                </td>
+                                <td>
+                                    <div class="slds-truncate" title={bom.quantity}>{bom.quantity}</div>
+                                </td>
+                                <td>
+                                    <lightning-input type="number" value={bom.requestConsume} data-id={bom.id} onchange={handleRequestConsumeChange}></lightning-input>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+                <div class="slds-m-top_medium slds-grid slds-grid_align-spread">
+                    <lightning-button label="Previous" onclick={handlePrevious} disabled={disablePrevious}></lightning-button>
+                    <lightning-button label="Next" onclick={handleNext} disabled={disableNext}></lightning-button>
+                </div>
+                <div class="slds-m-top_medium slds-p-around_medium">
+                    <lightning-button label="Save" onclick={handleSave}></lightning-button>
+                </div>
+            </template>
+            <template if:true={boms.error}>
+                <div class="slds-text-color_error">
+                    <p>{boms.error}</p>
+                </div>
+            </template>
         </template>
-        <template if:true={boms.error}>
-            <div class="slds-text-color_error">
-                <p>{boms.error}</p>
-            </div>
-        </template>
-        <div class="slds-p-around_medium">
-            <lightning-button label="Save" onclick={handleSave}></lightning-button>
-        </div>
     </lightning-card>
 </template>
+
 
 
 import { LightningElement, api, track } from 'lwc';
@@ -75,8 +78,9 @@ export default class BomRequest extends LightningElement {
     @track searchKey = '';
     @track currentPage = 1;
     @track pageSize = 10;
-    @track isLoading = true;
-    @track selectedOption = 'Request';
+    @track isLoading = false;
+    @track selectedOption = '';
+    @track showTable = false;
     error;
 
     options = [
@@ -111,6 +115,8 @@ export default class BomRequest extends LightningElement {
 
     handleOptionChange(event) {
         this.selectedOption = event.target.value;
+        this.showTable = true;
+        this.updatePaginatedData();
     }
 
     handleSearch(event) {
@@ -122,6 +128,23 @@ export default class BomRequest extends LightningElement {
         const start = (this.currentPage - 1) * this.pageSize;
         const end = start + this.pageSize;
         this.paginatedData = this.filteredData.slice(start, end);
+    }
+
+    get disablePrevious() {
+        return this.currentPage === 1;
+    }
+
+    get disableNext() {
+        return this.currentPage * this.pageSize >= this.filteredData.length;
+    }
+
+    get filteredData() {
+        if (this.searchKey) {
+            return this.boms.filter(bom =>
+                bom.productName.toLowerCase().includes(this.searchKey.toLowerCase())
+            );
+        }
+        return this.boms;
     }
 
     handlePrevious() {
