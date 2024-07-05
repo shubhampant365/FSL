@@ -17,15 +17,15 @@
                 </thead>
                 <tbody>
                     <template for:each={boms.data} for:item="bom">
-                        <tr key={bom.Id} class="slds-hint-parent">
+                        <tr key={bom.id} class="slds-hint-parent">
                             <td data-label="BOM Name">
-                                <div class="slds-truncate" title={bom.Name}>{bom.Name}</div>
+                                <div class="slds-truncate" title={bom.name}>{bom.name}</div>
                             </td>
                             <td data-label="Product Name">
-                                <div class="slds-truncate" title={bom.ProductName}>{bom.ProductName}</div>
+                                <div class="slds-truncate" title={bom.productName}>{bom.productName}</div>
                             </td>
                             <td data-label="Quantity">
-                                <div class="slds-truncate" title={bom.Quantity__c}>{bom.Quantity__c}</div>
+                                <div class="slds-truncate" title={bom.quantity}>{bom.quantity}</div>
                             </td>
                         </tr>
                     </template>
@@ -47,4 +47,8 @@ export default class BomRequest extends LightningElement {
 
     @wire(getBOMs, { workOrderLineItemId: '$recordId' })
     boms;
+
+    get hasData() {
+        return this.boms.data && this.boms.data.length > 0;
+    }
 }
