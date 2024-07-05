@@ -1,95 +1,68 @@
 <template>
-    <lightning-card title="Bill of Materials" icon-name="standard:product_item">
-        <template if:true={boms}>
-            <table class="slds-table slds-table_cell-buffer slds-table_bordered">
-                <thead>
-                    <tr class="slds-line-height_reset">
-                        <th scope="col">
-                            <div class="slds-truncate" title="Product Code">Product Code</div>
-                        </th>
-                        <th scope="col">
-                            <div class="slds-truncate" title="FG Product Code">FG Product Code</div>
-                        </th>
-                        <th scope="col">
-                            <div class="slds-truncate" title="Quantity">Quantity</div>
-                        </th>
-                        <th scope="col">
-                            <div class="slds-truncate" title="Requested">Requested</div>
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <template for:each={boms} for:item="bom">
-                        <tr key={bom.Id} class="slds-hint-parent">
-                            <td data-label="Product Code">
-                                <lightning-combobox
-                                    data-id={bom.Id}
-                                    options={bomOptions}
-                                    value={bom.Product_Code__c}
-                                    placeholder="Select Product Code"
-                                    onchange={handleComboboxChange}>
-                                </lightning-combobox>
-                            </td>
-                            <td data-label="FG Product Code">
-                                <div class="slds-truncate" title={bom.FG_Product_Code__c}>{bom.FG_Product_Code__c}</div>
-                            </td>
-                            <td data-label="Quantity">
-                                <div class="slds-truncate" title={bom.Quantity__c}>{bom.Quantity__c}</div>
-                            </td>
-                            <td data-label="Requested">
-                                <lightning-input type="number" value={bom.requestedQuantity} data-id={bom.Id} onchange={handleInputChange}></lightning-input>
-                            </td>
-                        </tr>
-                    </template>
-                </tbody>
-            </table>
+    <lightning-card title="Product Lookup" icon-name="standard:product_item">
+        <lightning-input type="text" label="Search Product" value={searchKey} onchange={handleSearchChange}></lightning-input>
+        <template if:true={searchResults}>
+            <lightning-datatable
+                key-field="Id"
+                data={searchResults}
+                columns={columns}
+                onrowaction={handleRowAction}>
+            </lightning-datatable>
+        </template>
+        <template if:true={selectedProduct}>
+            <p>Selected Product: {selectedProduct.Name}</p>
+            <p>Quantity: {selectedProduct.Quantity__c}</p>
+            <p>FG Product Code: {selectedProduct.FG_Product_Code__c}</p>
         </template>
         <template if:true={error}>
             <p class="slds-text-color_error">{error}</p>
         </template>
     </lightning-card>
 </template>
-import { LightningElement, api, wire, track } from 'lwc';
-import getBOMRecords from '@salesforce/apex/BOMRequestController.getBOMRecords';
-import getProductCodes from '@salesforce/apex/BOMRequestController.getProductCodes';
 
-export default class BomList extends LightningElement {
-    @api recordId;
-    @track boms;
+
+
+import { LightningElement, track, wire } from 'lwc';
+import searchProducts from '@salesforce/apex/BOMRequestController.searchProducts';
+
+export default class BomLookup extends LightningElement {
+    @track searchKey = '';
+    @track searchResults;
     @track error;
-    @track bomOptions = [];
+    @track selectedProduct;
 
-    @wire(getBOMRecords, { workOrderLineItemId: '$recordId' })
-    wiredBOMs({ error, data }) {
-        if (data) {
-            this.boms = data.map(bom => ({ ...bom, requestedQuantity: 0 }));
-            this.error = undefined;
-        } else if (error) {
-            this.error = error;
-            this.boms = undefined;
+    columns = [
+        { label: 'Product Code', fieldName: 'Name' },
+        { label: 'Quantity', fieldName: 'Quantity__c' },
+        { label: 'FG Product Code', fieldName: 'FG_Product_Code__c' },
+        {
+            type: 'button',
+            typeAttributes: {
+                label: 'Select',
+                name: 'select'
+            }
+        }
+    ];
+
+    handleSearchChange(event) {
+        this.searchKey = event.target.value;
+        if (this.searchKey.length > 2) {
+            searchProducts({ searchKey: this.searchKey })
+                .then(result => {
+                    this.searchResults = result;
+                    this.error = undefined;
+                })
+                .catch(error => {
+                    this.error = error;
+                    this.searchResults = undefined;
+                });
+        } else {
+            this.searchResults = undefined;
         }
     }
 
-    @wire(getProductCodes)
-    wiredProductCodes({ error, data }) {
-        if (data) {
-            this.bomOptions = data.map(product => ({ label: product.Name, value: product.Id }));
-            this.error = undefined;
-        } else if (error) {
-            this.error = error;
-            this.bomOptions = [];
-        }
-    }
-
-    handleComboboxChange(event) {
-        const bomId = event.target.dataset.id;
-        const value = event.target.value;
-        this.boms = this.boms.map(bom => bom.Id === bomId ? { ...bom, Product_Code__c: value } : bom);
-    }
-
-    handleInputChange(event) {
-        const bomId = event.target.dataset.id;
-        const value = event.target.value;
-        this.boms = this.boms.map(bom => bom.Id === bomId ? { ...bom, requestedQuantity: value } : bom);
+    handleRowAction(event) {
+        const productId = event.detail.row.Id;
+        this.selectedProduct = this.searchResults.find(product => product.Id === productId);
     }
 }
