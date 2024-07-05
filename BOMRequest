@@ -1,85 +1,11 @@
-import { LightningElement, api, wire, track } from 'lwc';
-import getBOMs from '@salesforce/apex/BOMRequestController.getBOMs';
-
-export default class BomRequest extends LightningElement {
-    @api recordId;
-    @track boms = { data: [], error: null };
-    @track paginatedData = [];
-    @track searchKey = '';
-    @track currentPage = 1;
-    @track pageSize = 10;
-
-    @wire(getBOMs, { workOrderLineItemId: '$recordId' })
-    wiredBOMs({ error, data }) {
-        if (data) {
-            console.log('Data from Apex:', JSON.stringify(data)); // Debug log to check data
-            this.boms.data = data.map(bom => ({ ...bom, requestConsume: 0 }));
-            this.updatePaginatedData();
-        } else if (error) {
-            this.boms.error = error;
-            console.error('Error from Apex:', error); // Debug log for error
-        }
-    }
-
-    get disablePrevious() {
-        return this.currentPage === 1;
-    }
-
-    get disableNext() {
-        return this.currentPage * this.pageSize >= this.filteredData.length;
-    }
-
-    get filteredData() {
-        if (this.searchKey) {
-            return this.boms.data.filter(bom =>
-                bom.productName.toLowerCase().includes(this.searchKey.toLowerCase())
-            );
-        }
-        return this.boms.data;
-    }
-
-    handleSearch(event) {
-        this.searchKey = event.target.value;
-        this.updatePaginatedData();
-    }
-
-    updatePaginatedData() {
-        const start = (this.currentPage - 1) * this.pageSize;
-        const end = start + this.pageSize;
-        this.paginatedData = this.filteredData.slice(start, end);
-        console.log('Paginated Data:', JSON.stringify(this.paginatedData)); // Debug log for pagination
-    }
-
-    handlePrevious() {
-        if (this.currentPage > 1) {
-            this.currentPage--;
-            this.updatePaginatedData();
-        }
-    }
-
-    handleNext() {
-        if (this.currentPage * this.pageSize < this.filteredData.length) {
-            this.currentPage++;
-            this.updatePaginatedData();
-        }
-    }
-
-    handleRequestConsumeChange(event) {
-        const id = event.target.dataset.id;
-        const value = event.target.value;
-        const index = this.boms.data.findIndex(bom => bom.id === id);
-        if (index !== -1) {
-            this.boms.data[index].requestConsume = value;
-        }
-    }
-}
-
-
 <template>
     <lightning-card title="Bill of Materials">
         <div class="slds-p-horizontal_medium">
             <lightning-input type="search" label="Search by Product Name" value={searchKey} onchange={handleSearch}></lightning-input>
         </div>
+        <template if:true={isLoading}>
+            <lightning-spinner alternative-text="Loading"></lightning-spinner>
+        </template>
         <template if:true={paginatedData.length}>
             <table class="slds-table slds-table_cell-buffer slds-table_bordered">
                 <thead>
@@ -121,3 +47,86 @@ export default class BomRequest extends LightningElement {
         </template>
     </lightning-card>
 </template>
+
+
+import { LightningElement, api, track } from 'lwc';
+import getBOMs from '@salesforce/apex/BOMRequestController.getBOMs';
+
+export default class BomRequest extends LightningElement {
+    @api recordId;
+    @track boms = { data: [], error: null };
+    @track paginatedData = [];
+    @track searchKey = '';
+    @track currentPage = 1;
+    @track pageSize = 10;
+    @track isLoading = true;
+
+    connectedCallback() {
+        this.fetchBOMs();
+    }
+
+    fetchBOMs() {
+        this.isLoading = true;
+        getBOMs({ workOrderLineItemId: this.recordId })
+            .then(data => {
+                this.boms.data = data.map(bom => ({ ...bom, requestConsume: 0 }));
+                this.updatePaginatedData();
+                this.isLoading = false;
+            })
+            .catch(error => {
+                this.boms.error = error;
+                this.isLoading = false;
+            });
+    }
+
+    get disablePrevious() {
+        return this.currentPage === 1;
+    }
+
+    get disableNext() {
+        return this.currentPage * this.pageSize >= this.filteredData.length;
+    }
+
+    get filteredData() {
+        if (this.searchKey) {
+            return this.boms.data.filter(bom =>
+                bom.productName.toLowerCase().includes(this.searchKey.toLowerCase())
+            );
+        }
+        return this.boms.data;
+    }
+
+    handleSearch(event) {
+        this.searchKey = event.target.value;
+        this.updatePaginatedData();
+    }
+
+    updatePaginatedData() {
+        const start = (this.currentPage - 1) * this.pageSize;
+        const end = start + this.pageSize;
+        this.paginatedData = this.filteredData.slice(start, end);
+    }
+
+    handlePrevious() {
+        if (this.currentPage > 1) {
+            this.currentPage--;
+            this.updatePaginatedData();
+        }
+    }
+
+    handleNext() {
+        if (this.currentPage * this.pageSize < this.filteredData.length) {
+            this.currentPage++;
+            this.updatePaginatedData();
+        }
+    }
+
+    handleRequestConsumeChange(event) {
+        const id = event.target.dataset.id;
+        const value = event.target.value;
+        const index = this.boms.data.findIndex(bom => bom.id === id);
+        if (index !== -1) {
+            this.boms.data[index].requestConsume = value;
+        }
+    }
+}
