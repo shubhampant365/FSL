@@ -6,8 +6,7 @@
         <template if:true={isLoading}>
             <lightning-spinner alternative-text="Loading"></lightning-spinner>
         </template>
-        <template if:true={filteredBoms.length}>
-            <p class="slds-p-horizontal_medium">Number of records: {filteredBoms.length}</p>
+        <template if:true={paginatedData.length}>
             <table class="slds-table slds-table_bordered slds-table_cell-buffer">
                 <thead>
                     <tr>
@@ -23,7 +22,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <template for:each={filteredBoms} for:item="bom">
+                    <template for:each={paginatedData} for:item="bom">
                         <tr key={bom.id}>
                             <td>
                                 <div class="slds-truncate" title={bom.productName}>{bom.productName}</div>
@@ -38,6 +37,10 @@
                     </template>
                 </tbody>
             </table>
+            <div class="slds-m-top_medium slds-grid slds-grid_align-spread">
+                <lightning-button label="Previous" onclick={handlePrevious} disabled={disablePrevious}></lightning-button>
+                <lightning-button label="Next" onclick={handleNext} disabled={disableNext}></lightning-button>
+            </div>
         </template>
         <template if:true={boms.error}>
             <div class="slds-text-color_error">
@@ -47,6 +50,7 @@
     </lightning-card>
 </template>
 
+
 import { LightningElement, api, track } from 'lwc';
 import getBOMs from '@salesforce/apex/BOMRequestController.getBOMs';
 
@@ -54,7 +58,10 @@ export default class BomRequest extends LightningElement {
     @api recordId;
     @track boms = [];
     @track filteredBoms = [];
+    @track paginatedData = [];
     @track searchKey = '';
+    @track currentPage = 1;
+    @track pageSize = 10;
     @track isLoading = true;
     error;
 
@@ -69,6 +76,7 @@ export default class BomRequest extends LightningElement {
                 console.log('Data from Apex:', JSON.stringify(data)); // Debug log to check data
                 this.boms = data.map(bom => ({ ...bom, requestConsume: 0 }));
                 this.filteredBoms = [...this.boms];
+                this.updatePaginatedData();
                 this.isLoading = false;
             })
             .catch(error => {
@@ -78,14 +86,45 @@ export default class BomRequest extends LightningElement {
             });
     }
 
-    handleSearch(event) {
-        const searchTerm = event.target.value.toLowerCase();
-        if (searchTerm) {
-            this.filteredBoms = this.boms.filter(bom =>
-                bom.productName.toLowerCase().includes(searchTerm)
+    get disablePrevious() {
+        return this.currentPage === 1;
+    }
+
+    get disableNext() {
+        return this.currentPage * this.pageSize >= this.filteredData.length;
+    }
+
+    get filteredData() {
+        if (this.searchKey) {
+            return this.boms.filter(bom =>
+                bom.productName.toLowerCase().includes(this.searchKey.toLowerCase())
             );
-        } else {
-            this.filteredBoms = [...this.boms];
+        }
+        return this.boms;
+    }
+
+    handleSearch(event) {
+        this.searchKey = event.target.value;
+        this.updatePaginatedData();
+    }
+
+    updatePaginatedData() {
+        const start = (this.currentPage - 1) * this.pageSize;
+        const end = start + this.pageSize;
+        this.paginatedData = this.filteredData.slice(start, end);
+    }
+
+    handlePrevious() {
+        if (this.currentPage > 1) {
+            this.currentPage--;
+            this.updatePaginatedData();
+        }
+    }
+
+    handleNext() {
+        if (this.currentPage * this.pageSize < this.filteredData.length) {
+            this.currentPage++;
+            this.updatePaginatedData();
         }
     }
 
@@ -105,5 +144,7 @@ export default class BomRequest extends LightningElement {
             }
             return bom;
         });
+
+        this.updatePaginatedData();
     }
 }
