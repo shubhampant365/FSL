@@ -1,7 +1,7 @@
 <template>
     <lightning-card title="Bill of Materials" icon-name="standard:product_item">
         <lightning-input type="text" label="Search Product Code" value={searchKey} onchange={handleSearchChange}></lightning-input>
-        <template if:true={filteredBoms.length}>
+        <template if:true={filteredBoms}>
             <table class="slds-table slds-table_cell-buffer slds-table_bordered">
                 <thead>
                     <tr class="slds-line-height_reset">
@@ -36,12 +36,11 @@
         <template if:true={error}>
             <p class="slds-text-color_error">{error}</p>
         </template>
-        <template if:true={filteredBoms.length == 0 && searchKey}>
+        <template if:true={filteredBoms.length === 0 && searchKey}>
             <p>No records found.</p>
         </template>
     </lightning-card>
 </template>
-
 
 
 import { LightningElement, api, wire, track } from 'lwc';
