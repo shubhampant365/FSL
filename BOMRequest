@@ -5,27 +5,29 @@
                 <thead>
                     <tr class="slds-line-height_reset">
                         <th scope="col">
-                            <div class="slds-truncate" title="BOM Name">BOM Name</div>
-                        </th>
-                        <th scope="col">
                             <div class="slds-truncate" title="Product Name">Product Name</div>
                         </th>
                         <th scope="col">
                             <div class="slds-truncate" title="Quantity">Quantity</div>
+                        </th>
+                        <th scope="col">
+                            <div class="slds-truncate" title="Request/Consume">Request/Consume</div>
                         </th>
                     </tr>
                 </thead>
                 <tbody>
                     <template for:each={boms.data} for:item="bom">
                         <tr key={bom.id} class="slds-hint-parent">
-                            <td data-label="BOM Name">
-                                <div class="slds-truncate" title={bom.name}>{bom.name}</div>
-                            </td>
                             <td data-label="Product Name">
                                 <div class="slds-truncate" title={bom.productName}>{bom.productName}</div>
                             </td>
                             <td data-label="Quantity">
                                 <div class="slds-truncate" title={bom.quantity}>{bom.quantity}</div>
+                            </td>
+                            <td data-label="Request/Consume">
+                                <div class="slds-truncate">
+                                    <lightning-input type="number" name="requestConsume" data-id={bom.id}></lightning-input>
+                                </div>
                             </td>
                         </tr>
                     </template>
@@ -37,7 +39,6 @@
         </template>
     </lightning-card>
 </template>
-
 
 import { LightningElement, api, wire } from 'lwc';
 import getBOMs from '@salesforce/apex/BOMRequestController.getBOMs';
