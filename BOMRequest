@@ -1,15 +1,15 @@
 <template>
-    <lightning-card title="Bill of Materials">
-        <div class="slds-p-horizontal_medium">
+    <lightning-card title="Bill of Materials" icon-name="standard:product_item">
+        <div class="slds-p-horizontal_medium slds-p-around_medium">
             <lightning-input type="search" label="Search by Product Name" value={searchKey} onchange={handleSearch}></lightning-input>
         </div>
         <template if:true={isLoading}>
             <lightning-spinner alternative-text="Loading"></lightning-spinner>
         </template>
-        <template if:true={filteredData.length}>
-            <table class="slds-table slds-table_cell-buffer slds-table_bordered">
+        <template if:true={filteredBoms.length}>
+            <table class="slds-table slds-table_bordered slds-table_cell-buffer">
                 <thead>
-                    <tr class="slds-line-height_reset">
+                    <tr>
                         <th scope="col">
                             <div class="slds-truncate" title="Product Name">Product Name</div>
                         </th>
@@ -22,15 +22,15 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <template for:each={filteredData} for:item="bom">
-                        <tr key={bom.id} class="slds-hint-parent">
-                            <td data-label="Product Name">
+                    <template for:each={filteredBoms} for:item="bom">
+                        <tr key={bom.id}>
+                            <td>
                                 <div class="slds-truncate" title={bom.productName}>{bom.productName}</div>
                             </td>
-                            <td data-label="Quantity">
+                            <td>
                                 <div class="slds-truncate" title={bom.quantity}>{bom.quantity}</div>
                             </td>
-                            <td data-label="Request/Consume">
+                            <td>
                                 <lightning-input type="number" value={bom.requestConsume} data-id={bom.id} onchange={handleRequestConsumeChange}></lightning-input>
                             </td>
                         </tr>
@@ -39,7 +39,9 @@
             </table>
         </template>
         <template if:true={boms.error}>
-            <p class="slds-text-color_error">{boms.error}</p>
+            <div class="slds-text-color_error">
+                <p>{boms.error}</p>
+            </div>
         </template>
     </lightning-card>
 </template>
@@ -50,9 +52,11 @@ import getBOMs from '@salesforce/apex/BOMRequestController.getBOMs';
 
 export default class BomRequest extends LightningElement {
     @api recordId;
-    @track boms = { data: [], error: null };
+    @track boms = [];
+    @track filteredBoms = [];
     @track searchKey = '';
     @track isLoading = true;
+    error;
 
     connectedCallback() {
         this.fetchBOMs();
@@ -63,35 +67,43 @@ export default class BomRequest extends LightningElement {
         getBOMs({ workOrderLineItemId: this.recordId })
             .then(data => {
                 console.log('Data from Apex:', JSON.stringify(data)); // Debug log to check data
-                this.boms.data = data.map(bom => ({ ...bom, requestConsume: 0 }));
+                this.boms = data.map(bom => ({ ...bom, requestConsume: 0 }));
+                this.filteredBoms = [...this.boms];
                 this.isLoading = false;
             })
             .catch(error => {
-                this.boms.error = error;
+                this.error = error;
                 console.error('Error from Apex:', error); // Debug log for error
                 this.isLoading = false;
             });
     }
 
-    get filteredData() {
-        if (this.searchKey) {
-            return this.boms.data.filter(bom =>
-                bom.productName.toLowerCase().includes(this.searchKey.toLowerCase())
-            );
-        }
-        return this.boms.data;
-    }
-
     handleSearch(event) {
-        this.searchKey = event.target.value;
+        const searchTerm = event.target.value.toLowerCase();
+        if (searchTerm) {
+            this.filteredBoms = this.boms.filter(bom =>
+                bom.productName.toLowerCase().includes(searchTerm)
+            );
+        } else {
+            this.filteredBoms = [...this.boms];
+        }
     }
 
     handleRequestConsumeChange(event) {
         const id = event.target.dataset.id;
         const value = event.target.value;
-        const index = this.boms.data.findIndex(bom => bom.id === id);
-        if (index !== -1) {
-            this.boms.data[index].requestConsume = value;
-        }
+        this.filteredBoms = this.filteredBoms.map(bom => {
+            if (bom.id === id) {
+                return { ...bom, requestConsume: value };
+            }
+            return bom;
+        });
+
+        this.boms = this.boms.map(bom => {
+            if (bom.id === id) {
+                return { ...bom, requestConsume: value };
+            }
+            return bom;
+        });
     }
 }
