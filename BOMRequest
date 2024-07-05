@@ -1,21 +1,23 @@
 <template>
     <lightning-card title="Bill of Materials" icon-name="standard:product_item">
-        <div class="slds-p-horizontal_medium slds-p-around_medium">
-            <lightning-radio-group 
-                label="Select Action"
-                options={options}
-                value={selectedOption}
-                onchange={handleOptionChange}
-                type="radio">
-            </lightning-radio-group>
-        </div>
-        <div class="slds-p-horizontal_medium slds-p-around_medium">
-            <lightning-input type="search" label="Search by Product Name" value={searchKey} onchange={handleSearch}></lightning-input>
-        </div>
-        <template if:true={isLoading}>
-            <lightning-spinner alternative-text="Loading"></lightning-spinner>
+        <template if:true={!showTable}>
+            <div class="slds-p-horizontal_medium slds-p-around_medium">
+                <lightning-radio-group 
+                    label="Select Action"
+                    options={options}
+                    value={selectedOption}
+                    onchange={handleOptionChange}
+                    type="radio">
+                </lightning-radio-group>
+            </div>
         </template>
         <template if:true={showTable}>
+            <div class="slds-p-horizontal_medium slds-p-around_medium">
+                <lightning-input type="search" label="Search by Product Name" value={searchKey} onchange={handleSearch}></lightning-input>
+            </div>
+            <template if:true={isLoading}>
+                <lightning-spinner alternative-text="Loading"></lightning-spinner>
+            </template>
             <template if:true={paginatedData.length}>
                 <table class="slds-table slds-table_bordered slds-table_cell-buffer">
                     <thead>
@@ -63,7 +65,6 @@
         </template>
     </lightning-card>
 </template>
-
 
 
 import { LightningElement, api, track } from 'lwc';
@@ -164,6 +165,19 @@ export default class BomRequest extends LightningElement {
     handleRequestConsumeChange(event) {
         const id = event.target.dataset.id;
         const value = event.target.value;
+        const bomIndex = this.boms.findIndex(bom => bom.id === id);
+
+        if (value > this.boms[bomIndex].quantity) {
+            this.dispatchEvent(
+                new ShowToastEvent({
+                    title: 'Error',
+                    message: 'Requested quantity exceeds available quantity',
+                    variant: 'error'
+                })
+            );
+            return;
+        }
+
         this.filteredBoms = this.filteredBoms.map(bom => {
             if (bom.id === id) {
                 return { ...bom, requestConsume: value };
