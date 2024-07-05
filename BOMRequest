@@ -1,6 +1,15 @@
 <template>
     <lightning-card title="Bill of Materials" icon-name="standard:product_item">
         <div class="slds-p-horizontal_medium slds-p-around_medium">
+            <lightning-radio-group 
+                label="Select Action"
+                options={options}
+                value={selectedOption}
+                onchange={handleOptionChange}
+                type="radio">
+            </lightning-radio-group>
+        </div>
+        <div class="slds-p-horizontal_medium slds-p-around_medium">
             <lightning-input type="search" label="Search by Product Name" value={searchKey} onchange={handleSearch}></lightning-input>
         </div>
         <template if:true={isLoading}>
@@ -17,7 +26,7 @@
                             <div class="slds-truncate" title="Quantity">Quantity</div>
                         </th>
                         <th scope="col">
-                            <div class="slds-truncate" title="Request/Consume">Request/Consume</div>
+                            <div class="slds-truncate" title={columnLabel}>{columnLabel}</div>
                         </th>
                     </tr>
                 </thead>
@@ -47,12 +56,16 @@
                 <p>{boms.error}</p>
             </div>
         </template>
+        <div class="slds-p-around_medium">
+            <lightning-button label="Save" onclick={handleSave}></lightning-button>
+        </div>
     </lightning-card>
 </template>
 
 
 import { LightningElement, api, track } from 'lwc';
 import getBOMs from '@salesforce/apex/BOMRequestController.getBOMs';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
 export default class BomRequest extends LightningElement {
     @api recordId;
@@ -63,7 +76,17 @@ export default class BomRequest extends LightningElement {
     @track currentPage = 1;
     @track pageSize = 10;
     @track isLoading = true;
+    @track selectedOption = 'Request';
     error;
+
+    options = [
+        { label: 'Consume', value: 'Consume' },
+        { label: 'Request', value: 'Request' }
+    ];
+
+    get columnLabel() {
+        return this.selectedOption;
+    }
 
     connectedCallback() {
         this.fetchBOMs();
@@ -86,21 +109,8 @@ export default class BomRequest extends LightningElement {
             });
     }
 
-    get disablePrevious() {
-        return this.currentPage === 1;
-    }
-
-    get disableNext() {
-        return this.currentPage * this.pageSize >= this.filteredData.length;
-    }
-
-    get filteredData() {
-        if (this.searchKey) {
-            return this.boms.filter(bom =>
-                bom.productName.toLowerCase().includes(this.searchKey.toLowerCase())
-            );
-        }
-        return this.boms;
+    handleOptionChange(event) {
+        this.selectedOption = event.target.value;
     }
 
     handleSearch(event) {
@@ -146,5 +156,24 @@ export default class BomRequest extends LightningElement {
         });
 
         this.updatePaginatedData();
+    }
+
+    handleSave() {
+        const bomsToSave = this.boms.map(bom => ({
+            id: bom.id,
+            requestConsume: bom.requestConsume
+        }));
+
+        console.log('BOMs to save:', JSON.stringify(bomsToSave)); // Debug log to check save data
+
+        this.dispatchEvent(
+            new ShowToastEvent({
+                title: 'Success',
+                message: 'Data saved successfully',
+                variant: 'success'
+            })
+        );
+
+        // Implement actual save logic here
     }
 }
