@@ -22,7 +22,7 @@
                     <template for:each={boms} for:item="bom">
                         <tr key={bom.Id} class="slds-hint-parent">
                             <td data-label="Product Code">
-                                <div class="slds-truncate" title={bom.Product_Code__c.Name}>{bom.Product_Code__c.Name}</div>
+                                <div class="slds-truncate" title={bom.Product_Code__c_Name}>{bom.Product_Code__c_Name}</div>
                             </td>
                             <td data-label="FG Product Code">
                                 <div class="slds-truncate" title={bom.FG_Product_Code__c}>{bom.FG_Product_Code__c}</div>
@@ -55,10 +55,13 @@ export default class BomList extends LightningElement {
 
     @wire(getBOMRecords, { workOrderLineItemId: '$recordId' })
     wiredBOMs({ error, data }) {
+        console.log('Wire method called');
         if (data) {
+            console.log('Data received:', data);
             this.boms = data.map(bom => ({ ...bom, requestedQuantity: 0 }));
             this.error = undefined;
         } else if (error) {
+            console.error('Error received:', error);
             this.error = error;
             this.boms = undefined;
         }
