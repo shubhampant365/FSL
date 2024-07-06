@@ -197,8 +197,6 @@ export default class BomRequest extends LightningElement {
 }
 
 
-
-
 <template>
     <lightning-card title="Bill of Materials" icon-name="standard:product_item">
         <div class="slds-p-horizontal_medium slds-p-around_medium">
