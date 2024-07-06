@@ -1,21 +1,20 @@
 <template>
     <lightning-card>
         <div style="padding: 1rem;">
-            <template if:true={filteredProducts}>
-                <lightning-record-picker
-                    label="Spare Parts"
-                    placeholder="Search Products..."
-                    object-api-name="Product2"
-                    onchange={handleProductChange}
-                    required>
-                </lightning-record-picker>
+            <lightning-record-picker
+                label="Spare Parts"
+                placeholder="Search Products..."
+                object-api-name="Product2"
+                filter={filter}
+                onchange={handleProductChange}
+                required>
+            </lightning-record-picker>
 
-                <lightning-input
-                    label="Available Quantity"
-                    value={availableQuantity}
-                    readonly>
-                </lightning-input>
-            </template>
+            <lightning-input
+                label="Available Quantity"
+                value={availableQuantity}
+                readonly>
+            </lightning-input>
 
             <!-- Other fields remain the same -->
 
@@ -32,6 +31,7 @@
         </div>
     </lightning-card>
 </template>
+
 
 import { LightningElement, track, api, wire } from 'lwc';
 import getFilteredProducts from '@salesforce/apex/RequestSparesController.getFilteredProducts';
@@ -51,6 +51,7 @@ export default class RequestSpares extends LightningElement {
     @track isLoading = false;
     @track filteredProducts = [];
     @track availableQuantity;
+    @track filter;
 
     deliveryOptions = [
         { label: 'ASP', value: 'ASP' },
@@ -61,6 +62,12 @@ export default class RequestSpares extends LightningElement {
     wiredProducts({ error, data }) {
         if (data) {
             this.filteredProducts = data;
+            const recordIds = data.map(product => product.product.Id);
+            this.filter = {
+                criteria: [
+                    { fieldPath: 'Id', operator: 'in', value: recordIds },
+                ],
+            };
         } else if (error) {
             this.showToast('Error', error.body.message, 'error');
         }
