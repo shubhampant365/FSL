@@ -123,7 +123,7 @@ export default class BomRequest extends LightningElement {
             .filter(bom => bom.requestConsume > 0)
             .map(bom => ({
                 id: bom.id,
-                productItemId: bom.productItemId, // Use productItemId instead of productId
+                productItemId: bom.productItemId,
                 requestConsume: bom.requestConsume
             }));
 
@@ -152,13 +152,13 @@ export default class BomRequest extends LightningElement {
                         variant: 'success'
                     })
                 );
-                // Reset the input values after successful save
                 this.boms = this.boms.map(bom => ({ ...bom, requestConsume: '' }));
                 this.filteredBoms = [...this.boms];
                 this.updatePaginatedData();
             })
             .catch(error => {
                 this.error = error;
+                console.error('Error while saving Product Consumed records:', error); // Debug log for error
                 this.dispatchEvent(
                     new ShowToastEvent({
                         title: 'Error',
@@ -171,76 +171,97 @@ export default class BomRequest extends LightningElement {
 }
 
 
-<template>
-    <lightning-card title="Bill of Materials" icon-name="standard:product_item">
-        <template if:true={shouldShowRadio}>
-            <div class="slds-p-horizontal_medium slds-p-around_medium">
-                <lightning-radio-group 
-                    label="Select Action"
-                    options={options}
-                    value={selectedOption}
-                    onchange={handleOptionChange}
-                    type="radio">
-                </lightning-radio-group>
-            </div>
-        </template>
-        <template if:true={showTable}>
-            <div class="slds-p-horizontal_medium slds-p-around_medium">
-                <lightning-input type="search" label="Search by Product Name" value={searchKey} onchange={handleSearch}></lightning-input>
-            </div>
-            <template if:true={isLoading}>
-                <lightning-spinner alternative-text="Loading"></lightning-spinner>
-            </template>
-            <template if:true={paginatedData.length}>
-                <table class="slds-table slds-table_bordered slds-table_cell-buffer">
-                    <thead>
-                        <tr>
-                            <th scope="col">
-                                <div class="slds-truncate" title="Product Name">Product Name</div>
-                            </th>
-                            <th scope="col">
-                                <div class="slds-truncate" title="Quantity">Quantity</div>
-                            </th>
-                            <th scope="col">
-                                <div class="slds-truncate" title="Quantity In Hand">Quantity In Hand</div>
-                            </th>
-                            <th scope="col">
-                                <div class="slds-truncate" title={columnLabel}>{columnLabel}</div>
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <template for:each={paginatedData} for:item="bom">
-                            <tr key={bom.id}>
-                                <td>
-                                    <div class="slds-truncate" title={bom.productName}>{bom.productName}</div>
-                                </td>
-                                <td>
-                                    <div class="slds-truncate" title={bom.quantity}>{bom.quantity}</div>
-                                </td>
-                                <td>
-                                    <div class="slds-truncate" title={bom.quantityOnHand}>{bom.quantityOnHand}</div>
-                                </td>
-                                <td>
-                                    <lightning-input type="number" value={bom.requestConsume} data-id={bom.id} onchange={handleRequestConsumeChange}></lightning-input>
-                                </td>
-                            </tr>
-                        </template>
-                    </tbody>
-                </table>
-                <div class="slds-m-top_medium slds-grid slds-grid_align-spread">
-                    <lightning-button label="Previous" onclick={handlePrevious} disabled={disablePrevious}></lightning-button>
-                    <lightning-button label="Next" onclick={handleNext} disabled={disableNext}></lightning-button>
-                </div>
-                <div class="slds-m-top_medium slds-p-around_medium">
-                    <lightning-button label="Save" onclick={handleSave}></lightning-button>
-                </div>
-            </template>
-            <template if:true={boms.error}>
-                <div class="slds-text-color_error">
-                    <p>{boms.error}</p>
-                </div>
-            </template>
-        </template>
-    </lightning-card>
-</template>
+public with sharing class BOMRequestController {
+    @AuraEnabled(cacheable=true)
+    public static List<BOMWrapper> getBOMs(Id workOrderLineItemId) {
+        Id currentUserId = UserInfo.getUserId();
+
+        List<ServiceResource> serviceResources = [
+            SELECT LocationId, RelatedRecordId 
+            FROM ServiceResource 
+            WHERE RelatedRecordId = :currentUserId
+        ];
+
+        if (serviceResources.isEmpty()) {
+            return new List<BOMWrapper>();
+        }
+
+        Id locationId = serviceResources[0].LocationId;
+
+        WorkOrderLineItem woli = [
+            SELECT Asset.Product2Id, Quantity__c 
+            FROM WorkOrderLineItem 
+            WHERE Id = :workOrderLineItemId
+            LIMIT 1
+        ];
+
+        Decimal workOrderQuantity = (woli.Quantity__c == null) ? 1 : woli.Quantity__c;
+
+        List<ProductItem> productItems = [
+            SELECT Id, Product2Id, QuantityOnHand
+            FROM ProductItem 
+            WHERE LocationId = :locationId
+        ];
+
+        Map<Id, ProductItem> productItemMap = new Map<Id, ProductItem>();
+        for (ProductItem productItem : productItems) {
+            productItemMap.put(productItem.Product2Id, productItem);
+        }
+
+        List<BOM__c> boms = [
+            SELECT Id, Name, Product_Code__c, Product_Code__r.Name, Quantity__c 
+            FROM BOM__c 
+            WHERE RecordType.DeveloperName = 'Bill_Of_Material' 
+              AND FG_Product_Code__c = :woli.Asset.Product2Id
+              AND Product_Code__c IN :productItemMap.keySet()
+        ];
+
+        List<BOMWrapper> wrappedBOMs = new List<BOMWrapper>();
+        for (BOM__c bom : boms) {
+            ProductItem productItem = productItemMap.get(bom.Product_Code__c);
+            wrappedBOMs.add(new BOMWrapper(bom, workOrderQuantity, productItem.Id, productItem.QuantityOnHand));
+        }
+
+        System.debug('Wrapped BOMs: ' + wrappedBOMs); // Debug log to check wrapped BOMs
+
+        return wrappedBOMs;
+    }
+
+    @AuraEnabled
+    public static void createProductConsumedRecords(List<BOMWrapper> bomWrappers, Id workOrderLineItemId) {
+        List<ProductConsumed> productConsumedRecords = new List<ProductConsumed>();
+        for (BOMWrapper bomWrapper : bomWrappers) {
+            if (bomWrapper.requestConsume > 0) {
+                ProductConsumed productConsumed = new ProductConsumed();
+                productConsumed.ProductItemId = bomWrapper.productItemId;
+                productConsumed.QuantityConsumed = bomWrapper.requestConsume;
+                productConsumed.WorkOrderLineItemId = workOrderLineItemId;
+                productConsumedRecords.add(productConsumed);
+            }
+        }
+
+        System.debug('Product Consumed Records to Insert: ' + productConsumedRecords); // Debug log to check records to insert
+
+        if (!productConsumedRecords.isEmpty()) {
+            insert productConsumedRecords;
+        }
+    }
+
+    public class BOMWrapper {
+        @AuraEnabled public String id { get; set; }
+        @AuraEnabled public String productName { get; set; }
+        @AuraEnabled public String productItemId { get; set; }
+        @AuraEnabled public Decimal quantity { get; set; }
+        @AuraEnabled public Decimal requestConsume { get; set; }
+        @AuraEnabled public Decimal quantityOnHand { get; set; }
+
+        public BOMWrapper(BOM__c bom, Decimal workOrderQuantity, Id productItemId, Decimal quantityOnHand) {
+            this.id = bom.Id;
+            this.productName = bom.Product_Code__r.Name;
+            this.productItemId = productItemId;
+            this.quantity = bom.Quantity__c * workOrderQuantity;
+            this.requestConsume = 0;
+            this.quantityOnHand = quantityOnHand;
+        }
+    }
+}
