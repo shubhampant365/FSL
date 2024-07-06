@@ -129,17 +129,7 @@ export default class BomRequest extends LightningElement {
 
         console.log('BOMs to save:', JSON.stringify(bomsToSave)); // Debug log to check save data
 
-        if (this.selectedOption === 'Consume') {
-            this.createProductConsumedRecords(bomsToSave);
-        } else {
-            this.dispatchEvent(
-                new ShowToastEvent({
-                    title: 'Success',
-                    message: 'Data saved successfully',
-                    variant: 'success'
-                })
-            );
-        }
+        this.createProductConsumedRecords(bomsToSave);
     }
 
     createProductConsumedRecords(bomsToSave) {
@@ -152,6 +142,7 @@ export default class BomRequest extends LightningElement {
                         variant: 'success'
                     })
                 );
+                // Reset the input values after successful save
                 this.boms = this.boms.map(bom => ({ ...bom, requestConsume: '' }));
                 this.filteredBoms = [...this.boms];
                 this.updatePaginatedData();
