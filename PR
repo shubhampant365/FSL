@@ -33,75 +33,105 @@
     </lightning-card>
 </template>
 
+import { LightningElement, track, api, wire } from 'lwc';
+import getFilteredProducts from '@salesforce/apex/RequestSparesController.getFilteredProducts';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import saveFormData from '@salesforce/apex/RequestSparesController.saveFormData';
 
-<template>
-    <lightning-card>
-        <div style="padding: 1rem;">
-            <template if:true={filteredProducts}>
-                <lightning-record-picker
-                    label="Spare Parts"
-                    placeholder="Search Products..."
-                    object-api-name="Product2"
-                    onchange={handleProductChange}
-                    required>
-                </lightning-record-picker>
+export default class RequestSpares extends LightningElement {
+    @track issue;
+    @track partCode;
+    @track modelNumber;
+    @track reasonForReplacement;
+    @track quantity;
+    @track selectedDeliveryOption;
+    @track serialNumberFile;
+    @track invoiceFile;
+    @api recordId;
+    @track isLoading = false;
+    @track filteredProducts = [];
+    @track availableQuantity;
 
-                <lightning-input
-                    label="Available Quantity"
-                    value={availableQuantity}
-                    readonly>
-                </lightning-input>
-            </template>
+    deliveryOptions = [
+        { label: 'ASP', value: 'ASP' },
+        { label: 'Customer', value: 'Customer' }
+    ];
 
-            <!-- Other fields remain the same -->
+    @wire(getFilteredProducts, { workOrderLineItemId: '$recordId' })
+    wiredProducts({ error, data }) {
+        if (data) {
+            this.filteredProducts = data;
+        } else if (error) {
+            this.showToast('Error', error.body.message, 'error');
+        }
+    }
 
-            <lightning-button 
-                label="Save" 
-                variant="brand" 
-                onclick={handleSave}
-                style="margin-top: 1rem;">
-            </lightning-button>
-            
-            <template if:true={isLoading}>
-                <lightning-spinner alternative-text="Saving..." size="medium" style="margin-top: 1rem;"></lightning-spinner>
-            </template>
-        </div>
-    </lightning-card>
-</template>
+    handleInputChange(event) {
+        const field = event.target.name;
+        this[field] = event.target.value;
+    }
 
+    handleProductChange(event) {
+        this.partCode = event.detail.recordId;
+        const selectedProduct = this.filteredProducts.find(product => product.product.Id === this.partCode);
+        if (selectedProduct) {
+            this.availableQuantity = selectedProduct.quantity;
+        }
+    }
 
+    handleFileChange(event) {
+        const field = event.target.name;
+        const file = event.target.files[0];
+        
+        const reader = new FileReader();
+        reader.onload = () => {
+            this[field] = reader.result.split(',')[1];
+        };
+        reader.onerror = () => {
+            this.showToast('Error', `Error reading file: ${file.name}`, 'error');
+        };
+        reader.readAsDataURL(file);
+    }
 
-<template>
-    <lightning-card>
-        <div style="padding: 1rem;">
-            <template if:true={filteredProducts}>
-                <lightning-record-picker
-                    label="Spare Parts"
-                    placeholder="Search Products..."
-                    object-api-name="Product2"
-                    onchange={handleProductChange}
-                    required>
-                </lightning-record-picker>
+    handleSave() {
+        if (!this.validateFields()) {
+            this.showToast('Error', 'Please fill in all required fields.', 'error');
+            return;
+        }
 
-                <lightning-input
-                    label="Available Quantity"
-                    value={availableQuantity}
-                    readonly>
-                </lightning-input>
-            </template>
+        this.isLoading = true;
+        saveFormData({
+            issue: this.issue,
+            partCode: this.partCode,
+            modelNumber: this.modelNumber,
+            reasonForReplacement: this.reasonForReplacement,
+            quantity: parseInt(this.quantity, 10),
+            selectedDeliveryOption: this.selectedDeliveryOption,
+            workOrderId: this.recordId,
+            serialNumberFile: this.serialNumberFile,
+            invoiceFile: this.invoiceFile
+        })
+        .then(result => {
+            this.showToast('Success', 'Form data saved successfully.', 'success');
+            this.isLoading = false;
+        })
+        .catch(error => {
+            this.showToast('Error', error.body.message, 'error');
+            this.isLoading = false;
+        });
+    }
 
-            <!-- Other fields remain the same -->
+    validateFields() {
+        const requiredFields = ['issue', 'partCode', 'modelNumber', 'reasonForReplacement', 'quantity', 'selectedDeliveryOption'];
+        return requiredFields.every(field => this[field] && this[field].trim() !== '');
+    }
 
-            <lightning-button 
-                label="Save" 
-                variant="brand" 
-                onclick={handleSave}
-                style="margin-top: 1rem;">
-            </lightning-button>
-            
-            <template if:true={isLoading}>
-                <lightning-spinner alternative-text="Saving..." size="medium" style="margin-top: 1rem;"></lightning-spinner>
-            </template>
-        </div>
-    </lightning-card>
-</template>
+    showToast(title, message, variant) {
+        const event = new ShowToastEvent({
+            title: title,
+            message: message,
+            variant: variant
+        });
+        this.dispatchEvent(event);
+    }
+}
