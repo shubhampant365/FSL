@@ -104,7 +104,8 @@ export default class BomRequest extends LightningElement {
             .map(bom => ({
                 id: bom.id,
                 productItemId: bom.productItemId,
-                requestConsume: bom.requestConsume
+                requestConsume: bom.requestConsume,
+                workOrderId: bom.workOrderId
             }));
 
         console.log('BOMs to save:', JSON.stringify(bomsToSave)); // Debug log to check save data
@@ -141,7 +142,6 @@ export default class BomRequest extends LightningElement {
             });
     }
 }
-
 
 
 <template>
