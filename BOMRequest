@@ -12,22 +12,8 @@ export default class BomRequest extends LightningElement {
     @track currentPage = 1;
     @track pageSize = 10;
     @track isLoading = false;
-    @track selectedOption = '';
-    @track showTable = false;
+    @track showTable = true;
     error;
-
-    options = [
-        { label: 'Consume', value: 'Consume' },
-        { label: 'Request', value: 'Request' }
-    ];
-
-    get shouldShowRadio() {
-        return !this.showTable;
-    }
-
-    get columnLabel() {
-        return this.selectedOption;
-    }
 
     connectedCallback() {
         this.fetchBOMs();
@@ -48,12 +34,6 @@ export default class BomRequest extends LightningElement {
                 console.error('Error from Apex:', error); // Debug log for error
                 this.isLoading = false;
             });
-    }
-
-    handleOptionChange(event) {
-        this.selectedOption = event.target.value;
-        this.showTable = true;
-        this.updatePaginatedData();
     }
 
     handleSearch(event) {
@@ -161,3 +141,66 @@ export default class BomRequest extends LightningElement {
             });
     }
 }
+
+
+
+<template>
+    <lightning-card title="Bill of Materials" icon-name="standard:product_item">
+        <div class="slds-p-horizontal_medium slds-p-around_medium">
+            <lightning-input type="search" label="Search by Product Name" value={searchKey} onchange={handleSearch}></lightning-input>
+        </div>
+        <template if:true={isLoading}>
+            <lightning-spinner alternative-text="Loading"></lightning-spinner>
+        </template>
+        <template if:true={paginatedData.length}>
+            <table class="slds-table slds-table_bordered slds-table_cell-buffer">
+                <thead>
+                    <tr>
+                        <th scope="col">
+                            <div class="slds-truncate" title="Product Name">Product Name</div>
+                        </th>
+                        <th scope="col">
+                            <div class="slds-truncate" title="Quantity">Quantity</div>
+                        </th>
+                        <th scope="col">
+                            <div class="slds-truncate" title="Quantity In Hand">Quantity In Hand</div>
+                        </th>
+                        <th scope="col">
+                            <div class="slds-truncate" title="Consume">Consume</div>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template for:each={paginatedData} for:item="bom">
+                        <tr key={bom.id}>
+                            <td>
+                                <div class="slds-truncate" title={bom.productName}>{bom.productName}</div>
+                            </td>
+                            <td>
+                                <div class="slds-truncate" title={bom.quantity}>{bom.quantity}</div>
+                            </td>
+                            <td>
+                                <div class="slds-truncate" title={bom.quantityOnHand}>{bom.quantityOnHand}</div>
+                            </td>
+                            <td>
+                                <lightning-input type="number" value={bom.requestConsume} data-id={bom.id} onchange={handleRequestConsumeChange}></lightning-input>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+            <div class="slds-m-top_medium slds-grid slds-grid_align-spread">
+                <lightning-button label="Previous" onclick={handlePrevious} disabled={disablePrevious}></lightning-button>
+                <lightning-button label="Next" onclick={handleNext} disabled={disableNext}></lightning-button>
+            </div>
+            <div class="slds-m-top_medium slds-p-around_medium">
+                <lightning-button label="Save" onclick={handleSave}></lightning-button>
+            </div>
+        </template>
+        <template if:true={boms.error}>
+            <div class="slds-text-color_error">
+                <p>{boms.error}</p>
+            </div>
+        </template>
+    </lightning-card>
+</template>
