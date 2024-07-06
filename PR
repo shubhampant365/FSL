@@ -18,13 +18,69 @@
 
             <!-- Other fields remain the same -->
 
+            <lightning-input 
+                label="Quantity" 
+                type="number" 
+                value={quantity} 
+                onchange={handleInputChange} 
+                name="quantity"
+                required>
+            </lightning-input>
+
+            <lightning-input 
+                label="Model Number" 
+                value={modelNumber} 
+                onchange={handleInputChange} 
+                name="modelNumber"
+                required>
+            </lightning-input>
+
+            <lightning-input 
+                label="Issue" 
+                value={issue} 
+                onchange={handleInputChange} 
+                name="issue"
+                required>
+            </lightning-input>
+
+            <lightning-input 
+                label="Reason for Replacement" 
+                value={reasonForReplacement} 
+                onchange={handleInputChange} 
+                name="reasonForReplacement"
+                required>
+            </lightning-input>
+
+            <lightning-combobox 
+                label="Bill To/Ship To" 
+                options={deliveryOptions} 
+                value={selectedDeliveryOption} 
+                onchange={handleInputChange} 
+                name="selectedDeliveryOption"
+                required>
+            </lightning-combobox>
+
+            <lightning-input 
+                label="Upload Photo with Serial Number" 
+                type="file" 
+                onchange={handleFileChange} 
+                name="serialNumberFile">
+            </lightning-input>
+
+            <lightning-input 
+                label="Customer Invoice Photograph" 
+                type="file" 
+                onchange={handleFileChange} 
+                name="invoiceFile">
+            </lightning-input>
+
             <lightning-button 
                 label="Save" 
                 variant="brand" 
                 onclick={handleSave}
                 style="margin-top: 1rem;">
             </lightning-button>
-            
+
             <template if:true={isLoading}>
                 <lightning-spinner alternative-text="Saving..." size="medium" style="margin-top: 1rem;"></lightning-spinner>
             </template>
@@ -33,7 +89,7 @@
 </template>
 
 
-import { LightningElement, track, api, wire } from 'lwc';
+import { LightningElement, track, api } from 'lwc';
 import getFilteredProducts from '@salesforce/apex/RequestSparesController.getFilteredProducts';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import saveFormData from '@salesforce/apex/RequestSparesController.saveFormData';
@@ -58,19 +114,24 @@ export default class RequestSpares extends LightningElement {
         { label: 'Customer', value: 'Customer' }
     ];
 
-    @wire(getFilteredProducts, { workOrderLineItemId: '$recordId' })
-    wiredProducts({ error, data }) {
-        if (data) {
-            this.filteredProducts = data;
-            const recordIds = data.map(product => product.product.Id);
-            this.filter = {
-                criteria: [
-                    { fieldPath: 'Id', operator: 'in', value: recordIds },
-                ],
-            };
-        } else if (error) {
-            this.showToast('Error', error.body.message, 'error');
-        }
+    connectedCallback() {
+        this.loadFilteredProducts();
+    }
+
+    loadFilteredProducts() {
+        getFilteredProducts({ workOrderLineItemId: this.recordId })
+            .then(data => {
+                this.filteredProducts = data;
+                const recordIds = data.map(product => product.product.Id);
+                this.filter = {
+                    criteria: [
+                        { fieldPath: 'Id', operator: 'in', value: recordIds },
+                    ],
+                };
+            })
+            .catch(error => {
+                this.showToast('Error', error.body.message, 'error');
+            });
     }
 
     handleInputChange(event) {
