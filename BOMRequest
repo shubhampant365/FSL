@@ -165,9 +165,39 @@ export default class BomRequest extends LightningElement {
     }
 
     handleRefresh() {
-        this.fetchBOMs();
+        this.isLoading = true;
+        getBOMs({ workOrderLineItemId: this.recordId })
+            .then(data => {
+                console.log('Data from Apex:', JSON.stringify(data)); // Debug log to check data
+                this.boms = data.map(bom => ({ ...bom, requestConsume: '' }));
+                this.filteredBoms = [...this.boms];
+                this.updatePaginatedData();
+                this.isLoading = false;
+                this.dispatchEvent(
+                    new ShowToastEvent({
+                        title: 'Success',
+                        message: 'Inventory refreshed successfully',
+                        variant: 'success'
+                    })
+                );
+            })
+            .catch(error => {
+                this.error = error;
+                console.error('Error from Apex during refresh:', error); // Debug log for error
+                this.isLoading = false;
+                this.dispatchEvent(
+                    new ShowToastEvent({
+                        title: 'Error',
+                        message: 'An error occurred while refreshing the inventory: ' + error.body.message,
+                        variant: 'error'
+                    })
+                );
+            });
     }
 }
+
+
+
 
 <template>
     <lightning-card title="Bill of Materials" icon-name="standard:product_item">
