@@ -129,11 +129,12 @@ export default class BomRequest extends LightningElement {
 
         console.log('BOMs to save:', JSON.stringify(bomsToSave)); // Debug log to check save data
 
-        this.createProductConsumedRecords(bomsToSave);
+        const payload = JSON.stringify(bomsToSave);
+        this.createProductConsumedRecords(payload);
     }
 
-    createProductConsumedRecords(bomsToSave) {
-        createProductConsumedRecords({ bomWrappers: bomsToSave, workOrderLineItemId: this.recordId })
+    createProductConsumedRecords(payload) {
+        createProductConsumedRecords({ payload, workOrderLineItemId: this.recordId })
             .then(() => {
                 this.dispatchEvent(
                     new ShowToastEvent({
