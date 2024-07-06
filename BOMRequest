@@ -162,106 +162,10 @@ export default class BomRequest extends LightningElement {
                 this.dispatchEvent(
                     new ShowToastEvent({
                         title: 'Error',
-                        message: 'An error occurred while creating Product Consumed records',
+                        message: 'An error occurred while creating Product Consumed records: ' + error.body.message,
                         variant: 'error'
                     })
                 );
             });
-    }
-}
-
-
-public with sharing class BOMRequestController {
-    @AuraEnabled(cacheable=true)
-    public static List<BOMWrapper> getBOMs(Id workOrderLineItemId) {
-        Id currentUserId = UserInfo.getUserId();
-
-        List<ServiceResource> serviceResources = [
-            SELECT LocationId, RelatedRecordId 
-            FROM ServiceResource 
-            WHERE RelatedRecordId = :currentUserId
-        ];
-
-        if (serviceResources.isEmpty()) {
-            return new List<BOMWrapper>();
-        }
-
-        Id locationId = serviceResources[0].LocationId;
-
-        WorkOrderLineItem woli = [
-            SELECT Asset.Product2Id, Quantity__c 
-            FROM WorkOrderLineItem 
-            WHERE Id = :workOrderLineItemId
-            LIMIT 1
-        ];
-
-        Decimal workOrderQuantity = (woli.Quantity__c == null) ? 1 : woli.Quantity__c;
-
-        List<ProductItem> productItems = [
-            SELECT Id, Product2Id, QuantityOnHand
-            FROM ProductItem 
-            WHERE LocationId = :locationId
-        ];
-
-        Map<Id, ProductItem> productItemMap = new Map<Id, ProductItem>();
-        for (ProductItem productItem : productItems) {
-            productItemMap.put(productItem.Product2Id, productItem);
-        }
-
-        List<BOM__c> boms = [
-            SELECT Id, Name, Product_Code__c, Product_Code__r.Name, Quantity__c 
-            FROM BOM__c 
-            WHERE RecordType.DeveloperName = 'Bill_Of_Material' 
-              AND FG_Product_Code__c = :woli.Asset.Product2Id
-              AND Product_Code__c IN :productItemMap.keySet()
-        ];
-
-        List<BOMWrapper> wrappedBOMs = new List<BOMWrapper>();
-        for (BOM__c bom : boms) {
-            ProductItem productItem = productItemMap.get(bom.Product_Code__c);
-            wrappedBOMs.add(new BOMWrapper(bom, workOrderQuantity, productItem.Id, productItem.QuantityOnHand));
-        }
-
-        System.debug('Wrapped BOMs: ' + wrappedBOMs); // Debug log to check wrapped BOMs
-
-        return wrappedBOMs;
-    }
-
-    @AuraEnabled
-    public static void createProductConsumedRecords(List<BOMWrapper> bomWrappers, Id workOrderLineItemId) {
-        List<ProductConsumed> productConsumedRecords = new List<ProductConsumed>();
-        for (BOMWrapper bomWrapper : bomWrappers) {
-            if (bomWrapper.requestConsume > 0) {
-                ProductConsumed productConsumed = new ProductConsumed();
-                productConsumed.ProductItemId = bomWrapper.productItemId;
-                productConsumed.QuantityConsumed = bomWrapper.requestConsume;
-                productConsumed.WorkOrderLineItemId = workOrderLineItemId;
-                productConsumedRecords.add(productConsumed);
-            }
-        }
-
-        System.debug('Product Consumed Records to Insert: ' + productConsumedRecords); // Debug log to check records to insert
-
-        if (!productConsumedRecords.isEmpty()) {
-            insert productConsumedRecords;
-        }
-    }
-
-    public class BOMWrapper {
-        @AuraEnabled public String id { get; set; }
-        @AuraEnabled public String productName { get; set; }
-        @AuraEnabled public String productItemId { get; set; }
-        @AuraEnabled public Decimal quantity { get; set; }
-        @AuraEnabled public Decimal requestConsume { get; set; }
-        @AuraEnabled public Decimal quantityOnHand { get; set; }
-
-        public BOMWrapper(BOM__c bom, Decimal workOrderQuantity, Id productItemId, Decimal quantityOnHand) {
-            this.id = bom.Id;
-            this.productName = bom.Product_Code__r.Name;
-            this.productItemId = productItemId;
-            this.quantity = bom.Quantity__c * workOrderQuantity;
-            this.requestConsume = 0;
-            this.quantityOnHand = quantityOnHand;
-        }
     }
 }
