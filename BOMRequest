@@ -29,7 +29,7 @@
                         <template for:each={paginatedData} for:item="bom">
                             <tr key={bom.id} class="slds-hint-parent">
                                 <td>
-                                    <div class="slds-truncate" title={bom.productName}>{bom.productName}</div>
+                                    <div class="slds-truncate product-name" title={bom.productName}>{bom.productName}</div>
                                 </td>
                                 <td>
                                     <div class="slds-truncate" title={bom.quantity}>{bom.quantity}</div>
@@ -61,3 +61,33 @@
         </template>
     </lightning-card>
 </template>
+
+
+
+
+.slds-table_wrapper {
+    overflow-x: auto;
+}
+
+.slds-table th, .slds-table td {
+    word-wrap: break-word;
+    white-space: normal;
+}
+
+.product-name {
+    word-wrap: break-word;
+    white-space: normal;
+    max-width: 200px; /* Adjust as needed */
+}
+
+@media screen and (max-width: 600px) {
+    .slds-table th, .slds-table td {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .product-name {
+        max-width: 100%; /* Ensure full width on mobile */
+    }
+}
