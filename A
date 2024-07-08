@@ -31,10 +31,10 @@
                                 <div class="slds-truncate" title={item.quantity}>{item.quantity}</div>
                             </td>
                             <td>
-                                <div class="slds-truncate" title={item.quantityOnHand}>{item.quantityOnHand}</div>
+                                <div class="slds-truncate" title={item.quantityonhand}>{item.quantityonhand}</div>
                             </td>
                             <td>
-                                <lightning-input type="number" value={item.requestQuantity} data-id={item.id} max={Math.min(item.quantity, item.quantityOnHand)} onchange={handleRequestChange}></lightning-input>
+                                <lightning-input type="number" value={item.requestquantity} data-id={item.id} max={Math.min(item.quantity, item.quantityonhand)} onchange={handleRequestChange}></lightning-input>
                             </td>
                         </tr>
                     </template>
@@ -76,7 +76,11 @@ export default class ProductItemList extends LightningElement {
     wiredProductItems(result) {
         this.wiredProductItemsResult = result;
         if (result.data) {
-            this.productItems = result.data.map(item => ({ ...item, requestQuantity: 0 }));
+            this.productItems = result.data.map(item => ({ 
+                ...item, 
+                requestquantity: 0,
+                quantityonhand: item.quantityOnHand
+            }));
             this.filteredProductItems = [...this.productItems];
             this.error = undefined;
         } else if (result.error) {
@@ -90,7 +94,7 @@ export default class ProductItemList extends LightningElement {
         const searchTerm = event.target.value.toLowerCase();
         if (searchTerm) {
             this.filteredProductItems = this.productItems.filter(item =>
-                item.productName.toLowerCase().includes(searchTerm)
+                item.productname.toLowerCase().includes(searchTerm)
             );
         } else {
             this.filteredProductItems = [...this.productItems];
@@ -102,14 +106,14 @@ export default class ProductItemList extends LightningElement {
         const value = event.target.value;
         this.filteredProductItems = this.filteredProductItems.map(item => {
             if (item.id === id) {
-                return { ...item, requestQuantity: value };
+                return { ...item, requestquantity: value };
             }
             return item;
         });
 
         this.productItems = this.productItems.map(item => {
             if (item.id === id) {
-                return { ...item, requestQuantity: value };
+                return { ...item, requestquantity: value };
             }
             return item;
         });
@@ -119,18 +123,18 @@ export default class ProductItemList extends LightningElement {
         let validationError = false;
 
         const requestedItems = this.productItems.reduce((map, item) => {
-            if (item.requestQuantity > 0) {
-                if (item.requestQuantity > item.quantity || item.requestQuantity > item.quantityOnHand) {
+            if (item.requestquantity > 0) {
+                if (item.requestquantity > item.quantity || item.requestquantity > item.quantityonhand) {
                     this.dispatchEvent(
                         new ShowToastEvent({
                             title: 'Error',
-                            message: `Requested quantity for ${item.productName} exceeds available quantity or quantity on hand`,
+                            message: `Requested quantity for ${item.productname} exceeds available quantity or quantity on hand`,
                             variant: 'error',
                         })
                     );
                     validationError = true;
                 } else {
-                    map[item.productItemId] = item.requestQuantity;
+                    map[item.productitemid] = item.requestquantity;
                 }
             }
             return map;
@@ -161,7 +165,7 @@ export default class ProductItemList extends LightningElement {
                     })
                 );
                 // Reset the input values
-                this.productItems = this.productItems.map(item => ({ ...item, requestQuantity: 0 }));
+                this.productItems = this.productItems.map(item => ({ ...item, requestquantity: 0 }));
                 this.filteredProductItems = [...this.productItems];
             })
             .catch(error => {
