@@ -13,11 +13,9 @@
 </template>
 
 
-
 import { LightningElement, api, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { updateRecord } from 'lightning/uiRecordApi';
-import { getRecordNotifyChange } from 'lightning/uiRecordApi';
 import SERVICE_APPOINTMENT_OBJECT from '@salesforce/schema/ServiceAppointment';
 import STATUS_FIELD from '@salesforce/schema/ServiceAppointment.Status';
 
@@ -51,9 +49,7 @@ export default class CancellationSMSVerification extends LightningElement {
 
         updateRecord(recordInput)
             .then(() => {
-                this.showToast('Success', 'Service Appointment status updated to Cancelled', 'success');
-                // Notify LDS that you've changed the record outside its mechanisms.
-                getRecordNotifyChange([{recordId: this.recordId}]);
+                this.showToast('Success', 'Service Appointment status updated to Canceled', 'success');
             })
             .catch(error => {
                 this.showToast('Error', error.body.message, 'error');
