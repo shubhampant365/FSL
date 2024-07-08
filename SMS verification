@@ -1,0 +1,71 @@
+<template>
+    <lightning-card title="SMS Verification" icon-name="custom:custom63">
+        <div class="slds-m-around_medium custom-button-container">
+            <lightning-button class="custom-button" label="Send SMS" onclick={handleSendSms}></lightning-button>
+        </div>
+        <div class="slds-m-around_medium custom-input-container">
+            <lightning-input class="custom-input" label="Enter OTP" value={otp} onchange={handleOtpChange}></lightning-input>
+        </div>
+        <div class="slds-m-around_medium custom-button-container">
+            <lightning-button class="custom-button" label="Verify OTP" onclick={handleVerifyOtp}></lightning-button>
+        </div>
+    </lightning-card>
+</template>
+
+
+
+import { LightningElement, api, track } from 'lwc';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import { updateRecord } from 'lightning/uiRecordApi';
+import { getRecordNotifyChange } from 'lightning/uiRecordApi';
+import SERVICE_APPOINTMENT_OBJECT from '@salesforce/schema/ServiceAppointment';
+import STATUS_FIELD from '@salesforce/schema/ServiceAppointment.Status';
+
+export default class CancellationSMSVerification extends LightningElement {
+    @api recordId;
+    @track otp = '';
+
+    handleSendSms() {
+        this.showToast('SMS sent', 'SMS has been sent to the customer', 'success');
+    }
+
+    handleOtpChange(event) {
+        this.otp = event.target.value;
+    }
+
+    handleVerifyOtp() {
+        if (this.otp === '454545') {
+            this.showToast('OTP Verified', 'The OTP is correct', 'success');
+            this.updateServiceAppointmentStatus();
+        } else {
+            this.showToast('Invalid OTP', 'The OTP entered is incorrect', 'error');
+        }
+    }
+
+    updateServiceAppointmentStatus() {
+        const fields = {};
+        fields[STATUS_FIELD.fieldApiName] = 'Canceled';
+        fields['Id'] = this.recordId;
+
+        const recordInput = { fields };
+
+        updateRecord(recordInput)
+            .then(() => {
+                this.showToast('Success', 'Service Appointment status updated to Cancelled', 'success');
+                // Notify LDS that you've changed the record outside its mechanisms.
+                getRecordNotifyChange([{recordId: this.recordId}]);
+            })
+            .catch(error => {
+                this.showToast('Error', error.body.message, 'error');
+            });
+    }
+
+    showToast(title, message, variant) {
+        const event = new ShowToastEvent({
+            title: title,
+            message: message,
+            variant: variant,
+        });
+        this.dispatchEvent(event);
+    }
+}
