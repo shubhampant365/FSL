@@ -1,0 +1,183 @@
+public class AssetWrapper {
+    @AuraEnabled
+    public Id Id;
+    @AuraEnabled
+    public String Name;
+    @AuraEnabled
+    public String Product_Category__c;
+    @AuraEnabled
+    public String Product_Sub_Category__c;
+    @AuraEnabled
+    public Integer Quantity;
+    @AuraEnabled
+    public Integer breakFix;
+
+    public AssetWrapper(Id Id, String Name, String Product_Category__c, String Product_Sub_Category__c, Integer Quantity, Integer breakFix) {
+        this.Id = Id;
+        this.Name = Name;
+        this.Product_Category__c = Product_Category__c;
+        this.Product_Sub_Category__c = Product_Sub_Category__c;
+        this.Quantity = Quantity;
+        this.breakFix = breakFix;
+    }
+}
+
+
+
+
+import { LightningElement, api, track } from 'lwc';
+import { FlowAttributeChangeEvent, FlowNavigationNextEvent } from 'lightning/flowSupport';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import getAssetsByAccountId from '@salesforce/apex/AssetController.getAssetsByAccountId';
+
+export default class FlowLwcComponent extends LightningElement {
+    @api accountId;
+    @api selectedAssets = []; // This will hold the list of wrapper objects
+    @track assets = [];
+    @track selectedAssetsList = [];
+    @track isButtonDisabled = true;
+    error;
+
+    connectedCallback() {
+        this.fetchAssets();
+    }
+
+    fetchAssets() {
+        getAssetsByAccountId({ accountId: this.accountId })
+            .then(result => {
+                this.assets = result.map(asset => ({
+                    ...asset,
+                    breakFix: asset.Quantity // Initialize breakFix property with Quantity value
+                }));
+                this.error = undefined;
+            })
+            .catch(error => {
+                this.error = error.body.message;
+                this.assets = [];
+                console.error('Error fetching assets:', error);
+            });
+    }
+
+    handleCheckboxChange(event) {
+        const selectedAssetId = event.target.value;
+        if (event.target.checked) {
+            const selectedAsset = this.assets.find(asset => asset.Id === selectedAssetId);
+            if (!this.selectedAssetsList.some(asset => asset.Id === selectedAssetId)) {
+                this.selectedAssetsList.push(selectedAsset);
+            }
+        } else {
+            this.selectedAssetsList = this.selectedAssetsList.filter(asset => asset.Id !== selectedAssetId);
+        }
+        this.isButtonDisabled = this.selectedAssetsList.length === 0;
+    }
+
+    handleBreakFixChange(event) {
+        const assetId = event.target.dataset.id;
+        const breakFixValue = parseInt(event.target.value, 10);
+        this.assets = this.assets.map(asset => {
+            if (asset.Id === assetId) {
+                if (breakFixValue > asset.Quantity) {
+                    this.showToast('Error', 'Break/Fix value cannot exceed Quantity', 'error');
+                    event.target.value = asset.breakFix; // Reset to previous value
+                } else {
+                    asset.breakFix = breakFixValue;
+                }
+            }
+            return asset;
+        });
+        this.selectedAssetsList = this.selectedAssetsList.map(asset => {
+            if (asset.Id === assetId) {
+                asset.breakFix = breakFixValue;
+            }
+            return asset;
+        });
+    }
+
+    sendSelectedAssetsToFlow() {
+        // Convert the list of selected assets to the expected format
+        this.selectedAssets = this.selectedAssetsList.map(asset => ({
+            Id: asset.Id,
+            Name: asset.Name,
+            Product_Category__c: asset.Product_Category__c,
+            Product_Sub_Category__c: asset.Product_Sub_Category__c,
+            Quantity: asset.Quantity,
+            breakFix: asset.breakFix
+        }));
+
+        const attributeChangeEvent = new FlowAttributeChangeEvent('selectedAssets', this.selectedAssets);
+        this.dispatchEvent(attributeChangeEvent);
+
+        // Move to the next screen in the flow
+        const nextNavigationEvent = new FlowNavigationNextEvent();
+        this.dispatchEvent(nextNavigationEvent);
+    }
+
+    showToast(title, message, variant) {
+        const event = new ShowToastEvent({
+            title,
+            message,
+            variant,
+        });
+        this.dispatchEvent(event);
+    }
+}
+
+
+<template>
+    <lightning-card title="Assets" icon-name="standard:asset_object">
+        <template if:true={assets}>
+            <table class="slds-table slds-table_cell-buffer slds-table_bordered">
+                <thead>
+                    <tr class="slds-text-title_bold">
+                        <th scope="col"></th>
+                        <th scope="col">Name</th>
+                        <th scope="col">Product Category</th>
+                        <th scope="col">Product Sub-Category</th>
+                        <th scope="col">Quantity</th>
+                        <th scope="col">Break/Fix</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template for:each={assets} for:item="asset">
+                        <tr key={asset.Id}>
+                            <td>
+                                <lightning-input type="checkbox" value={asset.Id} onchange={handleCheckboxChange}></lightning-input>
+                            </td>
+                            <td>{asset.Name}</td>
+                            <td>{asset.Product_Category__c}</td>
+                            <td>{asset.Product_Sub_Category__c}</td>
+                            <td>{asset.Quantity}</td>
+                            <td>
+                                <lightning-input type="number" data-id={asset.Id} value={asset.breakFix} onchange={handleBreakFixChange}></lightning-input>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </template>
+        <template if:true={error}>
+            <p>{error}</p>
+        </template>
+        <lightning-button label="Send Selected Assets" onclick={sendSelectedAssetsToFlow} class="slds-m-top_medium" disabled={isButtonDisabled}></lightning-button>
+    </lightning-card>
+</template>
+
+
+
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata" fqn="flowLwcComponent">
+    <apiVersion>57.0</apiVersion>
+    <isExposed>true</isExposed>
+    <targets>
+        <target>lightning__RecordPage</target>
+        <target>lightning__AppPage</target>
+        <target>lightning__HomePage</target>
+        <target>lightning__FlowScreen</target>
+    </targets>
+    <targetConfigs>
+        <targetConfig targets="lightning__FlowScreen">
+            <property name="accountId" type="String" label="Account Id" />
+            <property name="selectedAssets" type="apex://AssetWrapper[]" label="Selected Assets" role="outputOnly" />
+        </targetConfig>
+    </targetConfigs>
+</LightningComponentBundle>
