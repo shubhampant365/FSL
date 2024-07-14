@@ -1,0 +1,173 @@
+<template>
+    <lightning-card title="Counter Sale Order" icon-name="standard:orders">
+        <div class="slds-p-around_medium">
+            <div class="slds-m-bottom_medium">
+                <lightning-input label="First Name" value={firstName} disabled class="input-field" style="width: 100%;"></lightning-input>
+            </div>
+            <div class="slds-m-bottom_medium">
+                <lightning-input label="Last Name" value={lastName} disabled class="input-field" style="width: 100%;"></lightning-input>
+            </div>
+            <div class="slds-m-bottom_medium">
+                <lightning-input label="Product" value={productName} disabled class="input-field" style="width: 100%;"></lightning-input>
+            </div>
+            <div class="slds-m-bottom_medium">
+                <lightning-input label="Quantity" type="number" value={quantity} disabled class="input-field" style="width: 100%;"></lightning-input>
+            </div>
+            <div class="slds-m-bottom_medium">
+                <lightning-input label="Unit Price" type="number" value={unitPrice} disabled class="input-field" style="width: 100%;"></lightning-input>
+            </div>
+            <div class="slds-m-bottom_medium">
+                <lightning-input label="Total Price" type="number" value={totalPrice} disabled class="input-field" style="width: 100%;"></lightning-input>
+            </div>
+            <div class="slds-m-bottom_medium">
+                <lightning-input label="Discount (%)" type="number" value={discount} onchange={handleDiscountChange} max="100" placeholder="Enter discount" class="input-field" style="width: 100%;"></lightning-input>
+            </div>
+            <div class="slds-m-bottom_medium">
+                <lightning-input label="Final Sale Price" type="number" value={finalSalePrice} disabled placeholder="Calculated final sale price" class="input-field" style="width: 100%;"></lightning-input>
+            </div>
+            <div class="slds-m-bottom_medium">
+                <lightning-textarea label="Bill to Location" value={billToLocation} onchange={handleBillToLocationChange} placeholder="Enter bill to location" class="input-field" style="width: 100%;"></lightning-textarea>
+            </div>
+            <div class="slds-m-bottom_medium">
+                <lightning-textarea label="Ship to Location" value={shipToLocation} onchange={handleShipToLocationChange} placeholder="Enter ship to location" class="input-field" style="width: 100%;"></lightning-textarea>
+            </div>
+            <div class="slds-m-bottom_medium">
+                <lightning-input label="Invoice Number" value={invoiceNumber} onchange={handleInvoiceNumberChange} placeholder="Enter invoice number" class="input-field" style="width: 100%;"></lightning-input>
+            </div>
+            <div class="slds-m-bottom_medium">
+                <lightning-input label="Invoice Date" type="date" value={invoiceDate} onchange={handleInvoiceDateChange} class="input-field" style="width: 100%;"></lightning-input>
+            </div>
+            <lightning-button label="Save" onclick={handleSave} class="slds-m-top_medium save-button" style="width: 100%;"></lightning-button>
+        </div>
+    </lightning-card>
+</template>
+
+
+
+import { LightningElement, track, api, wire } from 'lwc';
+import { getRecord } from 'lightning/uiRecordApi';
+import createOrderAndItems from '@salesforce/apex/OrderController.createOrderAndItems';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+
+// Fields to retrieve from Lead
+const FIELDS = [
+    'Lead.FirstName',
+    'Lead.LastName',
+    'Lead.Total__c',
+    'Lead.Unit_Price__c',
+    'Lead.Quantity__c',
+    'Lead.Product__r.Name'
+];
+
+export default class CounterSaleOrder extends LightningElement {
+    @api recordId; // Lead Id
+    @track firstName = '';
+    @track lastName = '';
+    @track productName = '';
+    @track quantity = 0;
+    @track unitPrice = 0;
+    @track totalPrice = 0;
+    @track discount = 0;
+    @track finalSalePrice = 0;
+    @track billToLocation = '';
+    @track shipToLocation = '';
+    @track invoiceNumber = '';
+    @track invoiceDate = '';
+
+    @wire(getRecord, { recordId: '$recordId', fields: FIELDS })
+    loadLead({ error, data }) {
+        if (data) {
+            this.firstName = data.fields.FirstName.value;
+            this.lastName = data.fields.LastName.value;
+            this.productName = data.fields.Product__r.value.fields.Name.value;
+            this.quantity = data.fields.Quantity__c.value;
+            this.unitPrice = data.fields.Unit_Price__c.value;
+            this.totalPrice = data.fields.Total__c.value;
+            this.calculatePrices();
+        } else if (error) {
+            this.showToast('Error', 'Error loading lead data', 'error');
+        }
+    }
+
+    handleDiscountChange(event) {
+        const discountValue = event.target.value;
+        if (discountValue > 100) {
+            this.showToast('Error', 'Discount cannot be more than 100%', 'error');
+            this.discount = 100;
+        } else {
+            this.discount = discountValue;
+        }
+        this.calculatePrices();
+    }
+
+    handleBillToLocationChange(event) {
+        this.billToLocation = event.target.value;
+    }
+
+    handleShipToLocationChange(event) {
+        this.shipToLocation = event.target.value;
+    }
+
+    handleInvoiceNumberChange(event) {
+        this.invoiceNumber = event.target.value;
+    }
+
+    handleInvoiceDateChange(event) {
+        this.invoiceDate = event.target.value;
+    }
+
+    calculatePrices() {
+        if (this.quantity && this.unitPrice) {
+            this.totalPrice = this.quantity * this.unitPrice;
+            const discountAmount = (this.totalPrice * this.discount) / 100;
+            this.finalSalePrice = this.totalPrice - discountAmount;
+        } else {
+            this.totalPrice = 0;
+            this.finalSalePrice = 0;
+        }
+    }
+
+    handleSave() {
+        createOrderAndItems({
+            workOrderId: this.recordId, // Assuming Lead is related to the Order
+            firstName: this.firstName,
+            lastName: this.lastName,
+            productId: this.productId,
+            quantity: this.quantity,
+            unitPrice: this.unitPrice,
+            totalPrice: this.totalPrice,
+            discount: this.discount,
+            finalSalePrice: this.finalSalePrice,
+            billToLocation: this.billToLocation,
+            shipToLocation: this.shipToLocation,
+            invoiceNumber: this.invoiceNumber,
+            invoiceDate: this.invoiceDate
+        })
+        .then(() => {
+            this.showToast('Success', 'Order and Order Items created successfully!', 'success');
+            this.resetForm();
+        })
+        .catch(error => {
+            this.showToast('Error', 'Error creating order: ' + error.body.message, 'error');
+        });
+    }
+
+    resetForm() {
+        this.billToLocation = '';
+        this.shipToLocation = '';
+        this.invoiceNumber = '';
+        this.invoiceDate = '';
+        this.discount = 0;
+        this.calculatePrices();
+    }
+
+    showToast(title, message, variant) {
+        this.dispatchEvent(
+            new ShowToastEvent({
+                title: title,
+                message: message,
+                variant: variant
+            })
+        );
+    }
+}
