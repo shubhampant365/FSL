@@ -1,0 +1,262 @@
+<template>
+    <lightning-card style="margin-left: 1rem; margin-right: 1rem;">
+        <template if:true={isFirstScreen}>
+            <lightning-record-picker
+                label="Product"
+                object-api-name="Product2"
+                field-name="Name"
+                value={productId}
+                onchange={handleProductChange}
+                class="input-field" style="width: 100%; margin-bottom: 1rem;margin-left: 1rem;">
+            </lightning-record-picker>
+            <lightning-button variant="brand" label="Next" onclick={handleNext} style="margin-top: 1rem;"></lightning-button>
+        </template>
+        <template if:true={isSecondScreen}>
+            <lightning-card  style="margin-left: 1rem; margin-right: 1rem;">
+                <div style="margin: 1rem;">
+                    <lightning-input label="Product Name" value={productName} disabled style="width: 100%; margin-bottom: 0.5rem;"></lightning-input>
+                    <lightning-input label="Unit Price" value={unitPrice} disabled style="width: 100%; margin-bottom: 0.5rem;"></lightning-input>
+                    <lightning-input type="number" label="Quantity" value={quantity} onchange={handleQuantityChange} style="width: 100%; margin-bottom: 0.5rem;"></lightning-input>
+                    <lightning-input label="Total" value={total} disabled style="width: 100%; margin-bottom: 0.5rem;"></lightning-input>
+                    <lightning-combobox
+                        label="Preferred Time to Call"
+                        value={preferredTime}
+                        placeholder="Select Time"
+                        options={timeOptions}
+                        onchange={handlePreferredTimeChange}
+                        style="width: 100%; margin-bottom: 0.5rem;">
+                    </lightning-combobox>
+                    <template if:true={showLockFields}>
+                        <lightning-combobox
+                            label="Existing Security Strength"
+                            value={existingSecurityStrength}
+                            placeholder="Select Strength"
+                            options={securityStrengthOptions}
+                            onchange={handleExistingSecurityStrengthChange}
+                            style="width: 100%; margin-bottom: 0.5rem;">
+                        </lightning-combobox>
+                        <lightning-combobox
+                            label="Proposed Security Strength"
+                            value={proposedSecurityStrength}
+                            placeholder="Select Strength"
+                            options={securityStrengthOptions}
+                            onchange={handleProposedSecurityStrengthChange}
+                            style="width: 100%; margin-bottom: 0.5rem;">
+                        </lightning-combobox>
+                        <lightning-combobox
+                            label="Entry Point"
+                            value={entryPoint}
+                            placeholder="Select Entry Point"
+                            options={entryPointOptions}
+                            onchange={handleEntryPointChange}
+                            style="width: 100%; margin-bottom: 0.5rem;">
+                        </lightning-combobox>
+                        <lightning-combobox
+                            label="Competition Replaced"
+                            value={competitionReplaced}
+                            placeholder="Select Competition"
+                            options={competitionOptions}
+                            onchange={handleCompetitionReplacedChange}
+                            style="width: 100%; margin-bottom: 0.5rem;">
+                        </lightning-combobox>
+                    </template>
+                </div>
+                <lightning-button variant="brand" label="Save" onclick={handleSave} style="margin-top: 1rem;"></lightning-button>
+                <lightning-button variant="neutral" label="Back" onclick={handleBack} style="margin-top: 1rem;"></lightning-button>
+            </lightning-card>
+        </template>
+    </lightning-card>
+</template>
+
+
+
+
+import { LightningElement, api, track, wire } from 'lwc';
+import { getRecord } from 'lightning/uiRecordApi';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import getProductDetails from '@salesforce/apex/ProductController.getProductDetails';
+import saveLeadDetails from '@salesforce/apex/ProductController.saveLeadDetails';
+
+const FIELDS = [
+    'WorkOrder.Business_Unit__c',
+    'WorkOrder.Pricebook2Id',
+    'WorkOrder.Account.FirstName',
+    'WorkOrder.Account.LastName'
+];
+
+export default class ProductSelector extends LightningElement {
+    @api recordId; // WorkOrder record ID
+    @track isFirstScreen = true;
+    @track isSecondScreen = false;
+    @track productId;
+    @track productName;
+    @track unitPrice;
+    @track quantity = 1; // Default quantity is 1
+    @track total;
+
+    @track businessUnit;
+    @track pricebook2Id;
+    @track preferredTime;
+    @track firstName;
+    @track lastName;
+
+    @track existingSecurityStrength;
+    @track proposedSecurityStrength;
+    @track entryPoint;
+    @track competitionReplaced;
+
+    @track showLockFields = false;
+
+    get timeOptions() {
+        return [
+            { label: 'Morning', value: 'Morning' },
+            { label: 'Afternoon', value: 'Afternoon' },
+            { label: 'Evening', value: 'Evening' }
+        ];
+    }
+
+    get securityStrengthOptions() {
+        return [
+            { label: 'Level 1', value: 'Level 1' },
+            { label: 'Level 2', value: 'Level 2' },
+            { label: 'Level 3', value: 'Level 3' },
+            { label: 'Level 4', value: 'Level 4' },
+            { label: 'Level 5', value: 'Level 5' }
+        ];
+    }
+
+    get entryPointOptions() {
+        return [
+            { label: 'Main door', value: 'Main door' },
+            { label: 'Inner Door', value: 'Inner Door' }
+        ];
+    }
+
+    get competitionOptions() {
+        return [
+            { label: 'Europa', value: 'Europa' },
+            { label: 'Yale', value: 'Yale' },
+            { label: 'Dorset', value: 'Dorset' },
+            { label: 'Link', value: 'Link' },
+            { label: 'Qubo', value: 'Qubo' },
+            { label: 'Quba', value: 'Quba' },
+            { label: 'Lavna', value: 'Lavna' },
+            { label: 'Others', value: 'Others' }
+        ];
+    }
+
+    @wire(getRecord, { recordId: '$recordId', fields: FIELDS })
+    workOrder({ error, data }) {
+        if (data) {
+            this.businessUnit = data.fields.Business_Unit__c.value;
+            this.pricebook2Id = data.fields.Pricebook2Id.value;
+            if (data.fields.Account && data.fields.Account.value) {
+                this.firstName = data.fields.Account.value.fields.FirstName.value;
+                this.lastName = data.fields.Account.value.fields.LastName.value;
+            }
+            this.showLockFields = this.businessUnit === 'Locks';
+        } else if (error) {
+            this.showToast('Error', 'Failed to load WorkOrder data', 'error');
+        }
+    }
+
+    handleProductChange(event) {
+        this.productId = event.detail.recordId;
+    }
+
+    handleNext() {
+        if (this.productId) {
+            getProductDetails({ productId: this.productId, pricebook2Id: this.pricebook2Id })
+                .then(result => {
+                    this.productName = result.productName;
+                    this.unitPrice = result.unitPrice;
+                    this.calculateTotal();
+                    this.isFirstScreen = false;
+                    this.isSecondScreen = true;
+                })
+                .catch(error => {
+                    this.showToast('Error', 'Failed to fetch product details', 'error');
+                });
+        } else {
+            this.showToast('Error', 'Please select a product first.', 'error');
+        }
+    }
+
+    handleQuantityChange(event) {
+        this.quantity = event.target.value;
+        this.calculateTotal();
+    }
+
+    handlePreferredTimeChange(event) {
+        this.preferredTime = event.detail.value;
+    }
+
+    handleExistingSecurityStrengthChange(event) {
+        this.existingSecurityStrength = event.detail.value;
+    }
+
+    handleProposedSecurityStrengthChange(event) {
+        this.proposedSecurityStrength = event.detail.value;
+    }
+
+    handleEntryPointChange(event) {
+        this.entryPoint = event.detail.value;
+    }
+
+    handleCompetitionReplacedChange(event) {
+        this.competitionReplaced = event.detail.value;
+    }
+
+    calculateTotal() {
+        this.total = this.unitPrice * this.quantity;
+    }
+
+    handleSave() {
+        saveLeadDetails({
+            productId: this.productId,
+            productName: this.productName,
+            unitPrice: this.unitPrice,
+            quantity: this.quantity,
+            total: this.total,
+            preferredTime: this.preferredTime,
+            existingSecurityStrength: this.existingSecurityStrength,
+            proposedSecurityStrength: this.proposedSecurityStrength,
+            entryPoint: this.entryPoint,
+            competitionReplaced: this.competitionReplaced,
+            firstName: this.firstName,
+            lastName: this.lastName
+        })
+        .then(() => {
+            this.showToast('Success', 'Lead details saved successfully.', 'success');
+            this.handleBack();
+        })
+        .catch(error => {
+            this.showToast('Error', 'Failed to save lead details.', 'error');
+        });
+    }
+
+    handleBack() {
+        this.isFirstScreen = true;
+        this.isSecondScreen = false;
+        this.productId = null;
+        this.productName = null;
+        this.unitPrice = null;
+        this.quantity = 1;
+        this.total = null;
+        this.preferredTime = null;
+        this.existingSecurityStrength = null;
+        this.proposedSecurityStrength = null;
+        this.entryPoint = null;
+        this.competitionReplaced = null;
+    }
+
+    showToast(title, message, variant) {
+        this.dispatchEvent(
+            new ShowToastEvent({
+                title: title,
+                message: message,
+                variant: variant,
+            }),
+        );
+    }
+}
