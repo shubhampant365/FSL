@@ -1,8 +1,8 @@
 import { LightningElement, api, track } from 'lwc';
 import getBOMs from '@salesforce/apex/BOMRequestController.getBOMs';
 import createProductConsumedRecords from '@salesforce/apex/BOMRequestController.createProductConsumedRecords';
+import refreshApi from '@salesforce/apex/BOMRequestController.refreshApi'; // Importing the refreshApi method
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
-import refreshApi from '@salesforce/apex/YourRefreshApi.refreshApi'; // Assuming there's an Apex method for refreshing
 
 export default class BomRequest extends LightningElement {
     @api recordId;
@@ -171,9 +171,9 @@ export default class BomRequest extends LightningElement {
     // Handle refresh button click to call the refresh API and refresh the table
     handleRefresh() {
         this.isLoading = true;
-        refreshApi({ workOrderLineItemId: this.recordId })
+        refreshApi({ workOrderLineItemId: this.recordId }) // Call refreshApi method
             .then(() => {
-                this.fetchBOMs();
+                this.fetchBOMs(); // Fetch updated BOMs
                 this.isLoading = false;
                 this.dispatchEvent(
                     new ShowToastEvent({
@@ -196,7 +196,6 @@ export default class BomRequest extends LightningElement {
             });
     }
 }
-
 
 
 <template>
