@@ -7,7 +7,7 @@
             <lightning-spinner alternative-text="Loading"></lightning-spinner>
         </template>
         <template if:true={paginatedData.length}>
-            <div class="slds-scrollable_y" style="max-height: 400px;">
+            <div style="overflow-x: auto;">
                 <table class="slds-table slds-table_bordered slds-table_cell-buffer slds-table_col-bordered">
                     <thead>
                         <tr class="slds-line-height_reset">
