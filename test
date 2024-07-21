@@ -1,0 +1,247 @@
+<template>
+    <lightning-card title="Product Items" icon-name="standard:product_item">
+        <div class="slds-p-around_medium">
+            <lightning-input type="search" label="Search" value={searchKey} onchange={handleSearch}></lightning-input>
+        </div>
+        <template if:true={paginatedProductItems.length}>
+            <div style="overflow-x: auto;">
+                <table class="slds-table slds-table_bordered slds-table_cell-buffer slds-table_col-bordered">
+                    <thead>
+                        <tr class="slds-line-height_reset">
+                            <th scope="col">
+                                <div class="slds-truncate" title="Product Name">Product Name</div>
+                            </th>
+                            <th scope="col">
+                                <div class="slds-truncate" title="Item Code">Item Code</div>
+                            </th>
+                            <th scope="col">
+                                <div class="slds-truncate" title="Quantity On Hand">Quantity On Hand</div>
+                            </th>
+                            <th scope="col">
+                                <div class="slds-truncate" title="Computed Quantity">Computed Quantity</div>
+                            </th>
+                            <th scope="col">
+                                <div class="slds-truncate" title="Request Quantity">Request Quantity</div>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template for:each={paginatedProductItems} for:item="item">
+                            <tr key={item.Id}>
+                                <td>
+                                    <div class="slds-truncate" title={item.Name}>{item.Name}</div>
+                                </td>
+                                <td>
+                                    <div class="slds-truncate" title={item.ItemCode}>{item.ItemCode}</div>
+                                </td>
+                                <td>
+                                    <div class="slds-truncate" title={item.QuantityOnHand}>{item.QuantityOnHand}</div>
+                                </td>
+                                <td>
+                                    <div class="slds-truncate" title={item.ComputedQuantity}>{item.ComputedQuantity}</div>
+                                </td>
+                                <td>
+                                    <lightning-input type="number" value={item.requestQuantity} data-id={item.Id} onchange={handleRequestChange}></lightning-input>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+            <div class="slds-m-top_medium slds-grid slds-grid_align-spread">
+                <lightning-button label="Previous" onclick={handlePrevious} disabled={disablePrevious}></lightning-button>
+                <lightning-button label="Next" onclick={handleNext} disabled={disableNext}></lightning-button>
+            </div>
+        </template>
+        <template if:true={error}>
+            <div class="slds-text-color_error">
+                <p>{error}</p>
+            </div>
+        </template>
+        <div class="slds-p-around_medium slds-grid slds-grid_align-center">
+            <lightning-button label="Request Items" onclick={handleRequestItems} class="slds-m-right_small"></lightning-button>
+            <lightning-button label="Refresh" onclick={handleRefresh}></lightning-button>
+        </div>
+    </lightning-card>
+</template>
+
+
+
+import { LightningElement, api, wire, track } from 'lwc';
+import getProductItemsForWorkOrderLineItem from '@salesforce/apex/ASPInventoryController.getProductItemsForWorkOrderLineItem';
+import requestProductItems from '@salesforce/apex/ASPInventoryController.requestProductItems';
+import { refreshApex } from '@salesforce/apex';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+
+export default class ASPInventory extends LightningElement {
+    @api recordId;
+    @track productItems = [];
+    @track filteredProductItems = [];
+    @track paginatedProductItems = [];
+    @track searchKey = '';
+    @track currentPage = 1;
+    @track pageSize = 10;
+    error;
+
+    wiredProductItemsResult;
+
+    @wire(getProductItemsForWorkOrderLineItem, { workOrderLineItemId: '$recordId' })
+    wiredProductItems(result) {
+        this.wiredProductItemsResult = result;
+        if (result.data) {
+            this.productItems = result.data.map(item => ({ ...item, requestQuantity: 0 }));
+            this.filteredProductItems = [...this.productItems];
+            this.updatePaginatedData();
+            this.error = undefined;
+        } else if (result.error) {
+            this.error = result.error.body.message;
+            this.productItems = [];
+            this.filteredProductItems = [];
+        }
+    }
+
+    handleSearch(event) {
+        const searchTerm = event.target.value.toLowerCase();
+        if (searchTerm) {
+            this.filteredProductItems = this.productItems.filter(item =>
+                item.Name.toLowerCase().includes(searchTerm)
+            );
+        } else {
+            this.filteredProductItems = [...this.productItems];
+        }
+        this.updatePaginatedData();
+    }
+
+    handleRequestChange(event) {
+        const id = event.target.dataset.id;
+        const value = event.target.value;
+        this.filteredProductItems = this.filteredProductItems.map(item => {
+            if (item.Id === id) {
+                return { ...item, requestQuantity: value };
+            }
+            return item;
+        });
+
+        this.productItems = this.productItems.map(item => {
+            if (item.Id === id) {
+                return { ...item, requestQuantity: value };
+            }
+            return item;
+        });
+
+        this.updatePaginatedData();
+    }
+
+    updatePaginatedData() {
+        const start = (this.currentPage - 1) * this.pageSize;
+        const end = start + this.pageSize;
+        this.paginatedProductItems = this.filteredProductItems.slice(start, end);
+    }
+
+    get disablePrevious() {
+        return this.currentPage === 1;
+    }
+
+    get disableNext() {
+        return this.currentPage * this.pageSize >= this.filteredProductItems.length;
+    }
+
+    handlePrevious() {
+        if (this.currentPage > 1) {
+            this.currentPage--;
+            this.updatePaginatedData();
+        }
+    }
+
+    handleNext() {
+        if (this.currentPage * this.pageSize < this.filteredProductItems.length) {
+            this.currentPage++;
+            this.updatePaginatedData();
+        }
+    }
+
+    handleRequestItems() {
+        let validationError = false;
+
+        const requestedItems = this.productItems.reduce((map, item) => {
+            if (item.requestQuantity > 0) {
+                if (item.requestQuantity > item.QuantityOnHand || item.requestQuantity > item.ComputedQuantity) {
+                    this.dispatchEvent(
+                        new ShowToastEvent({
+                            title: 'Error',
+                            message: `Requested quantity for ${item.Name} exceeds available quantity`,
+                            variant: 'error',
+                        })
+                    );
+                    validationError = true;
+                } else {
+                    map[item.Product2Id] = item.requestQuantity;
+                }
+            }
+            return map;
+        }, {});
+
+        if (validationError) {
+            return;
+        }
+
+        if (Object.keys(requestedItems).length === 0) {
+            this.dispatchEvent(
+                new ShowToastEvent({
+                    title: 'Error',
+                    message: 'No items requested. Please enter a quantity for at least one item.',
+                    variant: 'error',
+                })
+            );
+            return;
+        }
+
+        requestProductItems({ requestedItems, recordId: this.recordId })
+            .then(() => {
+                this.dispatchEvent(
+                    new ShowToastEvent({
+                        title: 'Success',
+                        message: 'Product items requested successfully',
+                        variant: 'success',
+                    })
+                );
+                // Reset the input values
+                this.productItems = this.productItems.map(item => ({ ...item, requestQuantity: 0 }));
+                this.filteredProductItems = [...this.productItems];
+                this.updatePaginatedData();
+            })
+            .catch(error => {
+                this.error = error.body.message;
+                this.dispatchEvent(
+                    new ShowToastEvent({
+                        title: 'Error',
+                        message: 'An error occurred while requesting product items',
+                        variant: 'error',
+                    })
+                );
+            });
+    }
+
+    handleRefresh() {
+        refreshApex(this.wiredProductItemsResult)
+            .then(() => {
+                this.dispatchEvent(
+                    new ShowToastEvent({
+                        title: 'Success',
+                        message: 'Product items refreshed successfully',
+                        variant: 'success',
+                    })
+                );
+            })
+            .catch(error => {
+                this.error = error.body.message;
+                this.dispatchEvent(
+                    new ShowToastEvent({
+                        title: 'Error',
+                        message: 'An error occurred while refreshing product items',
+                        variant: 'error',
+                    })
+                );
+            });
+    }
+}
