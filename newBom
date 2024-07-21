@@ -7,8 +7,8 @@
             <lightning-spinner alternative-text="Loading"></lightning-spinner>
         </template>
         <template if:true={paginatedData.length}>
-            <div style="overflow-x: auto;">
-                <table class="slds-table slds-table_bordered slds-table_cell-buffer slds-table_resizable-cols slds-table_col-bordered">
+            <div class="slds-scrollable_y" style="max-height: 400px;">
+                <table class="slds-table slds-table_bordered slds-table_cell-buffer slds-table_col-bordered">
                     <thead>
                         <tr class="slds-line-height_reset">
                             <th scope="col">
@@ -34,22 +34,22 @@
                     <tbody>
                         <template for:each={paginatedData} for:item="bom">
                             <tr key={bom.id} class="slds-hint-parent">
-                                <td>
+                                <td data-label="Product Name">
                                     <div class="slds-truncate" title={bom.productName}>{bom.productName}</div>
                                 </td>
-                                <td>
+                                <td data-label="Description">
                                     <div class="slds-truncate" title={bom.productDescription}>{bom.productDescription}</div>
                                 </td>
-                                <td>
+                                <td data-label="Item Code">
                                     <div class="slds-truncate" title={bom.itemCode}>{bom.itemCode}</div>
                                 </td>
-                                <td>
+                                <td data-label="Quantity">
                                     <div class="slds-truncate" title={bom.quantity}>{bom.quantity}</div>
                                 </td>
-                                <td>
+                                <td data-label="Quantity In Hand">
                                     <div class="slds-truncate" title={bom.quantityOnHand}>{bom.quantityOnHand}</div>
                                 </td>
-                                <td>
+                                <td data-label="Consume">
                                     <lightning-input type="number" value={bom.requestConsume} data-id={bom.id} onchange={handleRequestConsumeChange}></lightning-input>
                                 </td>
                             </tr>
@@ -61,7 +61,7 @@
                 <lightning-button label="Previous" onclick={handlePrevious} disabled={disablePrevious}></lightning-button>
                 <lightning-button label="Next" onclick={handleNext} disabled={disableNext}></lightning-button>
             </div>
-            <div class="slds-m-top_medium slds-p-around_medium slds-grid slds-grid_align-center">
+            <div class="slds-m-top_medium slds-grid slds-grid_align-center">
                 <lightning-button label="Save" onclick={handleSave} class="slds-m-right_small"></lightning-button>
                 <lightning-button label="Refresh" onclick={handleRefresh}></lightning-button>
             </div>
