@@ -1,7 +1,7 @@
-import { LightningElement, api, track } from 'lwc';
+import { LightningElement, api, track, wire } from 'lwc';
 import getBOMs from '@salesforce/apex/BOMRequestController.getBOMs';
 import createProductConsumedRecords from '@salesforce/apex/BOMRequestController.createProductConsumedRecords';
-import refreshApi from '@salesforce/apex/BOMRequestController.refreshApi'; // Importing the refreshApi method
+import { refreshApex } from '@salesforce/apex';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
 export default class BomRequest extends LightningElement {
@@ -14,26 +14,21 @@ export default class BomRequest extends LightningElement {
     @track pageSize = 10;
     @track isLoading = false;
     error;
+    wiredBOMsResult;
 
-    // Lifecycle hook to fetch BOMs when the component is connected
-    connectedCallback() {
-        this.fetchBOMs();
-    }
-
-    // Fetch BOM data from the server
-    fetchBOMs() {
-        this.isLoading = true;
-        getBOMs({ workOrderLineItemId: this.recordId })
-            .then(data => {
-                this.boms = data.map(bom => ({ ...bom, requestConsume: '' }));
-                this.filteredBoms = [...this.boms];
-                this.updatePaginatedData();
-                this.isLoading = false;
-            })
-            .catch(error => {
-                this.error = error.body.message;
-                this.isLoading = false;
-            });
+    // Wire getBOMs method to automatically fetch data when component loads or refreshes
+    @wire(getBOMs, { workOrderLineItemId: '$recordId' })
+    wiredBOMs(result) {
+        this.wiredBOMsResult = result;
+        if (result.data) {
+            this.boms = result.data.map(bom => ({ ...bom, requestConsume: '' }));
+            this.filteredBoms = [...this.boms];
+            this.updatePaginatedData();
+            this.isLoading = false;
+        } else if (result.error) {
+            this.error = result.error.body.message;
+            this.isLoading = false;
+        }
     }
 
     // Handle search input change
@@ -154,7 +149,7 @@ export default class BomRequest extends LightningElement {
                         variant: 'success'
                     })
                 );
-                this.fetchBOMs(); // Refresh BOMs after save
+                return refreshApex(this.wiredBOMsResult); // Refresh the wired data after saving
             })
             .catch(error => {
                 this.error = error.body.message;
@@ -168,12 +163,11 @@ export default class BomRequest extends LightningElement {
             });
     }
 
-    // Handle refresh button click to call the refresh API and refresh the table
+    // Handle refresh button click to refresh the table
     handleRefresh() {
         this.isLoading = true;
-        refreshApi({ workOrderLineItemId: this.recordId }) // Call refreshApi method
+        refreshApex(this.wiredBOMsResult) // Refresh the wired data
             .then(() => {
-                this.fetchBOMs(); // Fetch updated BOMs
                 this.isLoading = false;
                 this.dispatchEvent(
                     new ShowToastEvent({
