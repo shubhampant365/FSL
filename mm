@@ -12,16 +12,19 @@
 		<name>ApexClass</name>
 	</types>
 	<types>
-		<members>ServiceAppointment.Cancellation_of_SA</members>
-		<name>ApprovalProcess</name>
-	</types>
-	<types>
+		<members>Asset.Actual_Product_Category__c</members>
 		<members>Asset.Actual_Product_Subcategory__c</members>
+		<members>JobCodeMaster__c.Product_Category__c</members>
+		<members>JobCodeMaster__c.Product_Subcategory__c</members>
+		<members>Order.Actual_Problem__c</members>
+		<members>ServiceAppointment.Business_Unit__c</members>
 		<members>ServiceAppointment.Productive_Unproductive__c</members>
 		<members>ServiceAppointment.Upv_Reason__c</members>
 		<name>CustomField</name>
 	</types>
 	<types>
+		<members>Upv_Reason.Address_Not_Found_H</members>
+		<members>Upv_Reason.Address_Not_Found_L</members>
 		<members>Upv_Reason.Address_Not_Found_U</members>
 		<members>Upv_Reason.Address_Not_Found_W</members>
 		<members>Upv_Reason.Already_Attended_H</members>
@@ -71,7 +74,14 @@
 		<members>Upv_Reason.Site_not_ready_over_7_days_W</members>
 		<members>Upv_Reason.Tools_Not_Available_U</members>
 		<members>Upv_Reason.Unauthorized_Seller_Purchase_U</members>
+		<members>Upv_Reason.Warranty_AMC_Paper_NA_H</members>
+		<members>Upv_Reason.Warranty_AMC_Paper_Not_Available_U</members>
+		<members>Upv_Reason.Warranty_Amc_Document_Not_Available_L</members>
 		<name>CustomMetadata</name>
+	</types>
+	<types>
+		<members>Upv_Reason__mdt</members>
+		<name>CustomObject</name>
 	</types>
 	<types>
 		<members>Account_Customer_Type</members>
@@ -95,13 +105,6 @@
 		<members>Account.Create_an_Asset</members>
 		<members>Case.Work_Order_Generation</members>
 		<name>QuickAction</name>
-	</types>
-	<types>
-		<members>Order.Appliance_Tertiary</members>
-		<members>Order.Interio_Tertiary</members>
-		<members>Order.Locks_Tertiary</members>
-		<members>Order.SSD_Tertiary</members>
-		<name>RecordType</name>
 	</types>
 	<types>
 		<members>GVLC</members>
