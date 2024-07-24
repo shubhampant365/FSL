@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+	<types>
+		<members>JobCodeMasterController</members>
+		<members>JobCodeMasterControllerTest</members>
+		<name>ApexClass</name>
+	</types>
+	<types>
+		<members>Job_Code__c.ProductCategory__c</members>
+		<name>CustomField</name>
+	</types>
+	<types>
+		<members>Product_Requested_Claim_Flow</members>
+		<name>Flow</name>
+	</types>
+	<types>
+		<members>Job_Code__c-Job Code Layout</members>
+		<members>Location-Location Layout</members>
+		<name>Layout</name>
+	</types>
+	<version>60.0</version>
+</Package>
