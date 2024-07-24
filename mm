@@ -3,17 +3,10 @@
 	<types>
 		<members>AssetOnboardingController</members>
 		<members>AssetOnboardingControllerTest</members>
-		<members>JobCodeMasterController</members>
-		<members>JobCodeMasterControllerTest</members>
-		<members>QRCodeServiceTest</members>
 		<name>ApexClass</name>
 	</types>
 	<types>
-		<members>Job_Code__c.ProductCategory__c</members>
-		<name>CustomField</name>
-	</types>
-	<types>
-		<members>assetOnboardingParent</members>
+		<members>assetOnboarding</members>
 		<name>LightningComponentBundle</name>
 	</types>
 	<version>60.0</version>
