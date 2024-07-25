@@ -1,11 +1,29 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
-
 	<types>
-		<members>ApplianceLogo</members>
-		<members>LocksLogo</members>
-		<members>SSDLogo</members>
-		<name>StaticResource</name>
+
+		<members>ServiceAppointmentTriggerHandler</members>
+		<members>ServiceAppointmentTriggerHandlerTest</members>
+		<name>ApexClass</name>
+	</types>
+	<types>
+		<members>ServiceAppointmentTrigger</members>
+		<name>ApexTrigger</name>
+	</types>
+	<types>
+		<members>Assigned</members>
+		<members>Scheduled</members>
+		<members>Cancelled</members>
+		<members>Completed</members>
+		<members>Dispatched</members>
+		<members>In_Progress</members>
+		<members>Pending</members>
+		<members>UPV</members>
+		<name>CustomLabel</name>
+	</types>
+	<types>
+		<members>Service_Appointment_Notification</members>
+		<name>Flow</name>
 	</types>
 	<version>60.0</version>
 </Package>
